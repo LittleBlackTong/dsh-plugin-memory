@@ -1,5 +1,12 @@
 # dsh-plugin-memory
 
+<p align="center">
+  <a href="https://github.com/LittleBlackTong/dsh-plugin-memory"><img alt="GitHub" src="https://img.shields.io/badge/GitHub-LittleBlackTong%2Fdsh--plugin--memory-blue?logo=github"></a>
+  <a href="https://www.npmjs.com/package/dsh-plugin-memory"><img alt="npm" src="https://img.shields.io/npm/v/dsh-plugin-memory?logo=npm"></a>
+  <img alt="license" src="https://img.shields.io/badge/license-MIT-blue">
+  <img alt="node" src="https://img.shields.io/badge/node-%3E%3D18-green">
+</p>
+
 > DeepSeek Harness 长期记忆插件：跨会话、可迁移、带「灵魂」的 markdown 记忆库。
 
 **English TL;DR** — A Cordis plugin for [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) that gives agents a persistent, cross-session, migratable long-term memory: a markdown + git store (inspired by Karpathy's *LLM Wiki* pattern) with a `SOUL.md` persona file, **auto-injected at every session start** via the system-prompt runtime context, plus remember / recall / consolidate / forget workflows and portable CLI tooling.
@@ -37,6 +44,10 @@ dsh-plugin-memory（本插件）
 ## 安装
 
 ```sh
+# npm
+npm install dsh-plugin-memory
+
+# 或 pnpm（推荐，DSH 生态默认包管理器）
 pnpm add dsh-plugin-memory
 ```
 
@@ -108,11 +119,22 @@ skill 版是"软保障"（技能目录只注入简介，正文靠模型主动加
 ## 开发
 
 ```sh
-git clone <repo> && cd dsh-plugin-memory
+git clone https://github.com/LittleBlackTong/dsh-plugin-memory.git
+cd dsh-plugin-memory
 node scripts/memory.mjs --self-test   # 冒烟测试（无需安装依赖）
 ```
 
-零构建：`lib/` 直接是运行时代码，`lib/types/index.d.ts` 供 TS 消费方使用。`boot.js` / `scaffold.js` 只依赖 `node:*` 内置模块，可独立复用。欢迎 PR（TypeScript 重写、embedding 检索、MCP server 等方向）。
+零构建：`lib/` 直接是运行时代码，`lib/types/index.d.ts` 供 TS 消费方使用。`boot.js` / `scaffold.js` 只依赖 `node:*` 内置模块，可独立复用。
+
+## 路线图
+
+- [ ] TypeScript 重写（带完整类型与构建步骤）
+- [ ] embedding/BM25 检索（规模超过几百页后替代 index 先行）
+- [ ] MCP server（让非 DSH 的 agent 也能用同一套记忆库）
+- [ ] GitHub Actions CI（跑 `--self-test` 与 lint）
+- [ ] 记忆加密存储选项
+
+欢迎在 [Issues](https://github.com/LittleBlackTong/dsh-plugin-memory/issues) 里提需求、报 bug、交 PR。
 
 ## License
 
