@@ -1,0 +1,10 @@
+# dsh-plugin-memory bundle layer.
+#
+# Declared via the `dsh.bundle.patch` manifest in package.json, so
+# `dsh plugin add dsh-plugin-memory` (and the dsh-market install flow)
+# mounts this insert automatically. User-level overrides — including the
+# hot-editable `enabled` / `memoryDir` / `autoInject` / `registerSkill` —
+# live in <dshHome>/memory.json, managed by the settings panel.
+- insert:
+    - id: dsh-memory
+      name: dsh-plugin-memory
