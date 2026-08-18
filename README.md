@@ -81,11 +81,13 @@ pnpm add dsh-plugin-memory
 | `autoInject` | `true` | 会话开始时注入 boot 块 |
 | `registerSkill` | `true` | 注册内嵌 `memory` 技能 |
 | `scaffold` | `true` | 记忆库缺失时自动创建模板（只建不覆盖） |
-| `settingsUi` | `true` | 注册 `memory` 设置命名空间（设置面板区块） |
+| `configFile` | `<dshHome>/memory.json` | 用户可改配置的 JSON 文件路径（设置面板读写它） |
 
 ### 设置面板（热改）
 
-`enabled` / `memoryDir` / `autoInject` / `registerSkill` 四项在 DSH 设置页的「记忆 Memory」区块中可改，**即时生效**：boot 注入、技能注册随修改立即重建；记忆目录切换时自动为新目录初始化脚手架（`scaffold: true` 时）。其余键（`bootFiles` / `bootMaxChars` / `scaffold` / `settingsUi`）只在 composition 配置层生效，改完需重启。
+`enabled` / `memoryDir` / `autoInject` / `registerSkill` 四项在 DSH 设置页的「记忆 Memory」区块中可改，**即时生效**：boot 注入、技能注册随修改立即重建；记忆目录切换时自动为新目录初始化脚手架（`scaffold: true` 时）。其余键（`bootFiles` / `bootMaxChars` / `scaffold` / `configFile`）只在 composition 配置层生效，改完需重启。
+
+> 实现说明：DSH 的 settings wire 只服务硬编码的命名空间白名单，插件命名空间写不进去，因此本插件走自建通道——配置存 `<dshHome>/memory.json`（schema 校验 + 原子落盘），由插件自注册的 `GET/POST /api/memory/config` 路由服务，客户端区块 fetch 直连。
 
 ## 首次使用：铸魂
 

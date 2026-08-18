@@ -1,23 +1,25 @@
 import assert from 'node:assert/strict'
-import { mkdtempSync, writeFileSync } from 'node:fs'
+import { mkdtempSync, readFileSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
+import { Readable } from 'node:stream'
 import test from 'node:test'
 
 import plugin, {
+  CONFIG_ROUTE_PATH,
   Config,
-  SETTINGS_NAMESPACE,
   SettingsSchema,
   apply,
   inject,
   name,
 } from '../lib/index.js'
+import { MemoryConfigStore } from '../lib/config-store.js'
 
-/** Build a fake Cordis ctx. When `settings` is provided, `ctx.inject` fires synchronously. */
-function makeFakeCtx({ settings } = {}) {
+/** Build a fake Cordis ctx; `ctx.inject` records dependency requests. */
+function makeFakeCtx() {
   const calls = [] // every systemPrompt.context / skills.register call
   const disposed = []
-  const effects = []
+  const injects = []
   const ctx = {
     systemPrompt: {
       context(value) {
@@ -32,52 +34,46 @@ function makeFakeCtx({ settings } = {}) {
       },
     },
     logger: { info() {} },
-    inject: () => {},
+    inject(deps, callback) {
+      injects.push({ deps, callback })
+    },
     effect(fn) {
-      effects.push(fn)
       const cleanup = fn()
       return () => cleanup?.()
     },
   }
-  if (settings !== undefined) {
-    ctx.inject = (deps, cb) => cb({
-      settings,
-      effect(fn) {
-        effects.push(fn)
-        const cleanup = fn()
-        return () => cleanup?.()
-      },
-    })
-  }
-  return { ctx, calls, disposed }
+  return { ctx, calls, disposed, injects }
 }
 
-/** Fake settings service: base + user layer, watch fires on set(). */
-function makeFakeSettings() {
-  let user = {}
-  const listeners = []
-  const scope = {
-    get: () => user,
-    watch(cb) {
-      listeners.push(cb)
-      return () => {}
-    },
-  }
+function makeFakeRes() {
   return {
-    scope,
-    registrations: [],
-    register(ns, schema, options) {
-      this.registrations.push({ ns, schema, options })
-      return scope
+    status: 0,
+    headers: undefined,
+    body: '',
+    writeHead(status, headers) {
+      this.status = status
+      this.headers = headers
     },
-    set(patch) {
-      user = { ...user, ...patch }
-      for (const cb of listeners) cb()
+    end(body) {
+      this.body = body ?? ''
     },
   }
 }
 
-const CFG = { memoryDir: '/tmp/dsh-plugin-memory-test', scaffold: false }
+async function routeCall(route, method, body) {
+  const res = makeFakeRes()
+  const req = Readable.from(body === undefined ? [] : [Buffer.from(body)])
+  req.method = method
+  await route.handler(req, res)
+  return { status: res.status, body: res.body }
+}
+
+const TMP = mkdtempSync(join(tmpdir(), 'dsh-plugin-memory-test-'))
+const CFG = {
+  memoryDir: join(TMP, 'memory-dir'),
+  scaffold: false,
+  configFile: join(TMP, 'memory.json'),
+}
 
 test('default export retains Cordis metadata after DSH unwraps it', () => {
   assert.equal(typeof plugin, 'function')
@@ -85,105 +81,175 @@ test('default export retains Cordis metadata after DSH unwraps it', () => {
   assert.equal(plugin.name, name)
   assert.deepEqual(plugin.inject, inject)
   assert.equal(plugin.Config, Config)
-  assert.equal(SETTINGS_NAMESPACE, 'memory')
   assert.equal(typeof SettingsSchema, 'function')
+  assert.equal(CONFIG_ROUTE_PATH, '/api/memory/config')
 })
 
-test('works without a settings service (config-only fallback)', () => {
-  const { ctx, calls, disposed } = makeFakeCtx()
+test('works without a webServer (headless): config-only, boot + skill registered', () => {
+  const { ctx, calls, disposed, injects } = makeFakeCtx()
   const dispose = plugin(ctx, CFG)
   assert.deepEqual(calls.map(([service]) => service), ['systemPrompt', 'skills'])
   assert.deepEqual(disposed, [])
+  assert.deepEqual(injects.map((entry) => entry.deps), [['webServer']])
   dispose()
   assert.deepEqual(disposed, ['systemPrompt', 'skills'])
 })
 
-test('registers the settings namespace with the composition config as base', () => {
-  const settings = makeFakeSettings()
-  const { ctx } = makeFakeCtx({ settings })
-  const dispose = plugin(ctx, { ...CFG, memoryDir: '/tmp/base-dir', autoInject: false })
-  assert.equal(settings.registrations.length, 1)
-  const { ns, options } = settings.registrations[0]
-  assert.equal(ns, 'memory')
-  assert.deepEqual(options.base, {
+test('registers the config route and GET serves the resolved config', async () => {
+  const { ctx, injects } = makeFakeCtx()
+  const dispose = plugin(ctx, CFG)
+
+  const routes = new Map()
+  const webCtx = {
+    webServer: {
+      register(route) {
+        routes.set(route.path, route)
+        return () => routes.delete(route.path)
+      },
+    },
+    effect: () => () => {},
+  }
+  const webInject = injects.find((entry) => entry.deps[0] === 'webServer')
+  assert.ok(webInject !== undefined)
+  webInject.callback(webCtx)
+
+  assert.equal(routes.has(CONFIG_ROUTE_PATH), true)
+  const route = routes.get(CONFIG_ROUTE_PATH)
+  assert.equal(route.kind, 'exact')
+
+  const { status, body } = await routeCall(route, 'GET')
+  assert.equal(status, 200)
+  assert.deepEqual(JSON.parse(body), {
     enabled: true,
-    memoryDir: '/tmp/base-dir',
-    autoInject: false,
+    memoryDir: CFG.memoryDir,
+    autoInject: true,
     registerSkill: true,
   })
   dispose()
 })
 
-test('hot edit: enabled=false tears both registrations down, re-enable restores them', () => {
-  const settings = makeFakeSettings()
-  const { ctx, calls, disposed } = makeFakeCtx({ settings })
+test('POST hot-edits: enabled=false tears both registrations down; restore re-registers', async () => {
+  const { ctx, calls, disposed, injects } = makeFakeCtx()
   const dispose = plugin(ctx, CFG)
+
+  const routes = new Map()
+  injects.find((entry) => entry.deps[0] === 'webServer').callback({
+    webServer: {
+      register(route) {
+        routes.set(route.path, route)
+        return () => routes.delete(route.path)
+      },
+    },
+    effect: () => () => {},
+  })
+  const route = routes.get(CONFIG_ROUTE_PATH)
   assert.deepEqual(calls.map(([service]) => service), ['systemPrompt', 'skills'])
 
-  settings.set({ enabled: false })
+  let result = await routeCall(route, 'POST', JSON.stringify({ enabled: false }))
+  assert.equal(result.status, 200)
+  assert.equal(JSON.parse(result.body).enabled, false)
   assert.deepEqual(disposed, ['systemPrompt', 'skills'])
   assert.equal(calls.length, 2) // nothing re-registered
 
-  settings.set({ enabled: true })
+  result = await routeCall(route, 'POST', JSON.stringify({ enabled: true }))
+  assert.equal(result.status, 200)
   assert.deepEqual(calls.map(([service]) => service), [
-    'systemPrompt',
-    'skills',
-    'systemPrompt',
-    'skills',
+    'systemPrompt', 'skills', 'systemPrompt', 'skills',
   ])
 
   dispose()
   assert.deepEqual(disposed, ['systemPrompt', 'skills', 'systemPrompt', 'skills'])
 })
 
-test('hot edit: memoryDir re-registers boot + skill against the new directory', () => {
-  const settings = makeFakeSettings()
-  const { ctx, calls } = makeFakeCtx({ settings })
+test('POST rejects a bad patch and an empty memoryDir', async () => {
+  const { ctx, injects } = makeFakeCtx()
   const dispose = plugin(ctx, CFG)
+  const routes = new Map()
+  injects.find((entry) => entry.deps[0] === 'webServer').callback({
+    webServer: {
+      register(route) {
+        routes.set(route.path, route)
+        return () => routes.delete(route.path)
+      },
+    },
+    effect: () => () => {},
+  })
+  const route = routes.get(CONFIG_ROUTE_PATH)
+
+  let result = await routeCall(route, 'POST', 'not-json')
+  assert.equal(result.status, 400)
+  assert.ok(JSON.parse(result.body).error.includes('JSON'))
+
+  result = await routeCall(route, 'POST', JSON.stringify({ memoryDir: '   ' }))
+  assert.equal(result.status, 400)
+  assert.ok(JSON.parse(result.body).error.includes('memoryDir'))
+
+  result = await routeCall(route, 'PUT')
+  assert.equal(result.status, 405)
+  dispose()
+})
+
+test('config file wins over composition base and persists', () => {
+  const path = join(TMP, `memory-store-${Date.now()}.json`)
+  writeFileSync(path, JSON.stringify({ enabled: false, autoInject: false }))
+  const store = new MemoryConfigStore({
+    path,
+    base: { enabled: true, memoryDir: '/tmp/base-dir', autoInject: true, registerSkill: true },
+  })
+  assert.equal(store.get().enabled, false)
+  assert.equal(store.get().autoInject, false)
+  assert.equal(store.get().memoryDir, '/tmp/base-dir') // not in file → base
+  assert.equal(store.get().registerSkill, true) // not in file → base
+
+  const next = store.update({ memoryDir: '~/.mem-test' })
+  assert.equal(next.memoryDir, '~/.mem-test')
+  const persisted = JSON.parse(readFileSync(path, 'utf8'))
+  assert.equal(persisted.memoryDir, '~/.mem-test')
+  assert.equal(persisted.enabled, false)
+
+  const reloaded = new MemoryConfigStore({ path, base: {} })
+  assert.equal(reloaded.get().memoryDir, '~/.mem-test')
+  assert.equal(reloaded.get().enabled, false)
+})
+
+test('store: corrupt file is ignored, watchers fire on update', () => {
+  const path = join(TMP, `memory-store-bad-${Date.now()}.json`)
+  writeFileSync(path, '{oops')
+  const store = new MemoryConfigStore({ path, base: { memoryDir: '/tmp/ok' } })
+  assert.equal(store.get().memoryDir, '/tmp/ok')
+
+  const seen = []
+  const unwatch = store.watch((config) => seen.push(config.memoryDir))
+  store.update({ memoryDir: '/tmp/changed' })
+  assert.deepEqual(seen, ['/tmp/changed'])
+  unwatch()
+  store.update({ memoryDir: '/tmp/changed-2' })
+  assert.deepEqual(seen, ['/tmp/changed'])
+})
+
+test('hot edit: memoryDir re-registers boot + skill against the new directory', async () => {
+  const { ctx, calls, injects } = makeFakeCtx()
+  const dispose = plugin(ctx, CFG)
+  const routes = new Map()
+  injects.find((entry) => entry.deps[0] === 'webServer').callback({
+    webServer: {
+      register(route) {
+        routes.set(route.path, route)
+        return () => routes.delete(route.path)
+      },
+    },
+    effect: () => () => {},
+  })
+  const route = routes.get(CONFIG_ROUTE_PATH)
 
   const otherDir = mkdtempSync(join(tmpdir(), 'dsh-memory-other-'))
   writeFileSync(join(otherDir, 'SOUL.md'), '# soul\n')
-  settings.set({ memoryDir: otherDir })
+  const result = await routeCall(route, 'POST', JSON.stringify({ memoryDir: otherDir }))
+  assert.equal(result.status, 200)
 
   const bootCall = calls.filter(([service]) => service === 'systemPrompt').at(-1)[1]
   const skillCall = calls.filter(([service]) => service === 'skills').at(-1)[1]
   assert.ok(bootCall.text().includes(otherDir))
   assert.deepEqual(skillCall.resourceBase, { kind: 'directory', path: otherDir })
-  dispose()
-})
-
-test('sub-switches: autoInject/registerSkill toggle independently', () => {
-  const settings = makeFakeSettings()
-  const { ctx, calls } = makeFakeCtx({ settings })
-  const dispose = plugin(ctx, CFG)
-
-  settings.set({ autoInject: false })
-  assert.deepEqual(calls.map(([service]) => service), [
-    'systemPrompt', 'skills', // initial
-    'skills', // boot torn down, skill re-registered
-  ])
-
-  settings.set({ registerSkill: false })
-  // skill torn down; boot stays off because autoInject is still false
-  assert.deepEqual(calls.map(([service]) => service), [
-    'systemPrompt', 'skills',
-    'skills',
-  ])
-
-  settings.set({ autoInject: true, registerSkill: true })
-  assert.deepEqual(calls.map(([service]) => service), [
-    'systemPrompt', 'skills',
-    'skills',
-    'systemPrompt', 'skills', // both restored
-  ])
-  dispose()
-})
-
-test('user-layer settings win over composition config', () => {
-  const settings = makeFakeSettings()
-  settings.set({ enabled: false, autoInject: false })
-  const { ctx, calls } = makeFakeCtx({ settings })
-  const dispose = plugin(ctx, CFG)
-  assert.deepEqual(calls, []) // fully disabled at startup
   dispose()
 })

@@ -28,17 +28,17 @@ export interface MemoryConfig {
   registerSkill?: boolean
   /** Create the store layout and templates when missing. Default `true`. */
   scaffold?: boolean
-  /** Register the `memory` settings namespace (Settings panel). Default `true`. */
-  settingsUi?: boolean
+  /** Absolute user-facing config-file path. Default `<dshHome>/memory.json`. */
+  configFile?: string
 }
 
 /** Schemastery schema for {@link MemoryConfig}. */
 export const Config: import('@deepseek-ai/schemastery').default<MemoryConfig>
 
-/** Settings namespace used by the Settings panel section. */
-export const SETTINGS_NAMESPACE: 'memory'
+/** HTTP route serving the user-facing config to the Settings panel. */
+export const CONFIG_ROUTE_PATH: '/api/memory/config'
 
-/** User-editable settings schema (composition config is the base layer). */
+/** User-editable settings (composition config is the base layer). */
 export interface MemorySettings {
   enabled?: boolean
   memoryDir?: string
@@ -48,6 +48,18 @@ export interface MemorySettings {
 
 /** Schemastery schema for {@link MemorySettings}. */
 export const SettingsSchema: import('@deepseek-ai/schemastery').default<MemorySettings>
+
+/** JSON config store: base + user layer, atomic persist, in-process watch. */
+export class MemoryConfigStore {
+  constructor(options?: { path?: string; base?: MemorySettings })
+  readonly path: string
+  get(): MemorySettings
+  update(patch: Partial<MemorySettings>): MemorySettings
+  watch(callback: (config: MemorySettings) => void): () => void
+}
+
+/** Default config-file path (`<dshHome>/memory.json`). */
+export function defaultConfigPath(): string
 
 /** Expand `~` and resolve `dir` to an absolute path. */
 export function resolveMemoryDir(dir: string): string
