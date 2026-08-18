@@ -18,6 +18,7 @@
 - **复利记忆**：遵循 Karpathy 的 *LLM Wiki* 约定——记忆是"一次编译、持续保鲜"的持久产物，不是每次查询重新 RAG。remember / recall / consolidate / forget 四操作 + salience 三级衰减。
 - **可迁移**：记忆本体是纯 markdown + git + 自描述 schema，任何能读 markdown 的 agent 都能接手。`dsh-memory pack/unpack` 打包迁移。
 - **内嵌技能**：通过 `ctx.skills.register()` 注册 `memory` 技能（操作协议随插件分发）；项目级 `.dsh/skills/memory` 文件技能仍可覆盖它。
+- **设置面板**：在 DSH 设置页提供「记忆 Memory」区块——总开关、记忆目录、开机注入、技能注册四项均可热改，立即生效，无需重启。
 - **零构建**：纯 ESM JavaScript，无编译步骤，`pnpm add` 即用。
 
 ## 架构
@@ -26,9 +27,10 @@
 
 ```
 dsh-plugin-memory（本插件）
-├── lib/index.js        # Cordis 入口：boot 注入 + 运行时技能注册
+├── lib/index.js        # Cordis 入口：boot 注入 + 运行时技能注册 + settings 热改
 ├── lib/boot.js         # boot 块渲染（SOUL/MEMORY/index + 最近 log，限额截断）
 ├── lib/scaffold.js     # 记忆库脚手架（模板只建不覆盖）
+├── lib/client.js       # 客户端半：设置面板「记忆 Memory」区块
 ├── skills/memory.md    # 内嵌技能的操作协议正文
 └── scripts/memory.mjs  # CLI：init/search/lint/status/pack/unpack
 
@@ -72,12 +74,18 @@ pnpm add dsh-plugin-memory
 
 | 键 | 默认值 | 含义 |
 |---|---|---|
+| `enabled` | `true` | 总开关：关闭后不注入 boot 块、不注册 `memory` 技能 |
 | `memoryDir` | `~/.memory` | 记忆库绝对路径（`~` 自动展开） |
 | `bootFiles` | `[SOUL.md, MEMORY.md, index.md]` | 开机注入的文件 |
 | `bootMaxChars` | `6000` | boot 块总字符预算（防止占用过多上下文） |
 | `autoInject` | `true` | 会话开始时注入 boot 块 |
 | `registerSkill` | `true` | 注册内嵌 `memory` 技能 |
 | `scaffold` | `true` | 记忆库缺失时自动创建模板（只建不覆盖） |
+| `settingsUi` | `true` | 注册 `memory` 设置命名空间（设置面板区块） |
+
+### 设置面板（热改）
+
+`enabled` / `memoryDir` / `autoInject` / `registerSkill` 四项在 DSH 设置页的「记忆 Memory」区块中可改，**即时生效**：boot 注入、技能注册随修改立即重建；记忆目录切换时自动为新目录初始化脚手架（`scaffold: true` 时）。其余键（`bootFiles` / `bootMaxChars` / `scaffold` / `settingsUi`）只在 composition 配置层生效，改完需重启。
 
 ## 首次使用：铸魂
 

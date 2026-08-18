@@ -14,6 +14,8 @@ export const inject: ['systemPrompt', 'skills']
 
 /** User-facing plugin configuration (all fields optional). */
 export interface MemoryConfig {
+  /** Master switch: stops boot injection AND skill registration. Default `true`. */
+  enabled?: boolean
   /** Absolute memory-store path; `~` is expanded. Default `'~/.memory'`. */
   memoryDir?: string
   /** Files injected at session start. Default `['SOUL.md', 'MEMORY.md', 'index.md']`. */
@@ -26,10 +28,26 @@ export interface MemoryConfig {
   registerSkill?: boolean
   /** Create the store layout and templates when missing. Default `true`. */
   scaffold?: boolean
+  /** Register the `memory` settings namespace (Settings panel). Default `true`. */
+  settingsUi?: boolean
 }
 
 /** Schemastery schema for {@link MemoryConfig}. */
 export const Config: import('@deepseek-ai/schemastery').default<MemoryConfig>
+
+/** Settings namespace used by the Settings panel section. */
+export const SETTINGS_NAMESPACE: 'memory'
+
+/** User-editable settings schema (composition config is the base layer). */
+export interface MemorySettings {
+  enabled?: boolean
+  memoryDir?: string
+  autoInject?: boolean
+  registerSkill?: boolean
+}
+
+/** Schemastery schema for {@link MemorySettings}. */
+export const SettingsSchema: import('@deepseek-ai/schemastery').default<MemorySettings>
 
 /** Expand `~` and resolve `dir` to an absolute path. */
 export function resolveMemoryDir(dir: string): string
