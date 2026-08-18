@@ -57,11 +57,16 @@ pnpm add dsh-plugin-memory
 - insert:
     - id: dsh-memory
       name: dsh-plugin-memory
+      inject:
+        - systemPrompt
+        - skills
       config:
         memoryDir: '~/.memory'
 ```
 
 重启 profile（DSH Desktop 重启应用）后生效。
+
+`inject` 两项是必须的：`systemPrompt` 用于注入记忆 boot 块，`skills` 用于注册 `memory` 技能。
 
 ## 配置
 

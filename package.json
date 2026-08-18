@@ -1,7 +1,7 @@
 {
   "name": "dsh-plugin-memory",
   "description": "Long-term memory plugin for DeepSeek Harness: persistent cross-session markdown memory with a soul/persona file, auto-injected at every session start, plus remember/recall/consolidate/forget workflows and portable migration tooling.",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "license": "MIT",
   "type": "module",
   "main": "lib/index.js",
@@ -26,6 +26,7 @@
   ],
   "scripts": {
     "test": "node scripts/memory.mjs --self-test",
+    "test:plugin": "node --test test/plugin-metadata.test.mjs",
     "lint:memory": "node scripts/memory.mjs lint"
   },
   "engines": {

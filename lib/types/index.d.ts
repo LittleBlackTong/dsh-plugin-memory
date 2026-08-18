@@ -34,10 +34,20 @@ export const Config: import('@deepseek-ai/schemastery').default<MemoryConfig>
 /** Expand `~` and resolve `dir` to an absolute path. */
 export function resolveMemoryDir(dir: string): string
 
+/** Callable Cordis plugin entry plus metadata consumed by the DSH loader. */
+export interface MemoryPlugin {
+  (ctx: Context, config?: MemoryConfig): () => void
+  readonly name: 'memory'
+  readonly inject: ['systemPrompt', 'skills']
+  readonly Config: import('@deepseek-ai/schemastery').default<MemoryConfig>
+}
+
 /** Cordis plugin entry. Returns the effect disposer. */
 export function apply(ctx: Context, config?: MemoryConfig): () => void
 
-export default apply
+declare const plugin: MemoryPlugin
+
+export default plugin
 
 /** Render the boot memory block injected at session start. */
 export function renderBootBlock(
