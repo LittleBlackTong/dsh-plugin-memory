@@ -46,6 +46,14 @@ dsh-plugin-memory（本插件）
 ## 安装
 
 ```sh
+dsh plugin --profile <profile> add dsh-plugin-memory
+```
+
+（包内置 `dsh.bundle` manifest，`dsh plugin add` 会自动把 insert 挂进 profile 的 patch 层；dsh-market 里的一键安装同此通道。）
+
+或手动安装：
+
+```sh
 # npm
 npm install dsh-plugin-memory
 
