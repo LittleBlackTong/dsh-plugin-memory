@@ -4,6 +4,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { Readable } from 'node:stream'
 import test from 'node:test'
+import { fileURLToPath } from 'node:url'
 
 import plugin, {
   CONFIG_ROUTE_PATH,
@@ -225,6 +226,19 @@ test('store: corrupt file is ignored, watchers fire on update', () => {
   unwatch()
   store.update({ memoryDir: '/tmp/changed-2' })
   assert.deepEqual(seen, ['/tmp/changed'])
+})
+
+test('ships a dsh.bundle manifest so `dsh plugin add` can mount it', () => {
+  const root = fileURLToPath(new URL('..', import.meta.url))
+  const pkg = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8'))
+  assert.equal(pkg.dsh?.bundle?.patch, './cordis.patch.yml')
+  assert.ok(
+    pkg.files?.includes('cordis.patch.yml'),
+    'cordis.patch.yml must be in the npm tarball (files whitelist)',
+  )
+  const patch = readFileSync(join(root, 'cordis.patch.yml'), 'utf8')
+  assert.ok(patch.includes('id: dsh-memory'))
+  assert.ok(patch.includes('name: dsh-plugin-memory'))
 })
 
 test('hot edit: memoryDir re-registers boot + skill against the new directory', async () => {
