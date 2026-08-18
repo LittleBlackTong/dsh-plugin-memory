@@ -50,6 +50,10 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/YOUR_NAME/dsh-plugin-memory.git"
-  }
+    "url": "git+https://github.com/LittleBlackTong/dsh-plugin-memory.git"
+  },
+  "bugs": {
+    "url": "https://github.com/LittleBlackTong/dsh-plugin-memory/issues"
+  },
+  "homepage": "https://github.com/LittleBlackTong/dsh-plugin-memory#readme"
 }
