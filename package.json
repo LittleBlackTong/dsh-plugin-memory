@@ -18,6 +18,9 @@
     "./package.json": "./package.json"
   },
   "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    },
     "client": {
       "platform": "web",
       "inject": [
@@ -30,6 +33,7 @@
     "skills/**",
     "scripts/**",
     "docs/**",
+    "cordis.patch.yml",
     "README.md",
     "LICENSE"
   ],
