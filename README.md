@@ -49,34 +49,16 @@ dsh-plugin-memory（本插件）
 dsh plugin --profile <profile> add dsh-plugin-memory
 ```
 
-（包内置 `dsh.bundle` manifest，`dsh plugin add` 会自动把 insert 挂进 profile 的 patch 层；dsh-market 里的一键安装同此通道。）
-
-或手动安装：
-
-```sh
-# npm
-npm install dsh-plugin-memory
-
-# 或 pnpm（推荐，DSH 生态默认包管理器）
-pnpm add dsh-plugin-memory
-```
-
-在你的 profile 的 `cordis.patch.yml` 中加入：
-
-```yaml
-- insert:
-    - id: dsh-memory
-      name: dsh-plugin-memory
-      inject:
-        - systemPrompt
-        - skills
-      config:
-        memoryDir: '~/.memory'
-```
+（包内置 `dsh.bundle` manifest，`dsh plugin add` 会把它自动挂进 profile 的 bundles 层；dsh-market 里的一键安装同此通道。）
 
 重启 profile（DSH Desktop 重启应用）后生效。
 
-`inject` 两项是必须的：`systemPrompt` 用于注入记忆 boot 块，`skills` 用于注册 `memory` 技能。
+> ⚠️ **不要**再往 profile 的 `cordis.patch.yml` 里手写 `- insert: {id: dsh-memory, ...}`：
+> 那会与 bundle manifest 的自动挂载产生两条同名 entry，整个 profile 会以
+> `duplicate loader entry id "dsh-memory"` 启动失败（2026-08-18 实机事故）。
+> 运行期配置（enabled / memoryDir / autoInject / registerSkill）改走
+> `<dshHome>/memory.json`（设置面板热改）；composition 配置见下表。
+> 如需覆盖某个 composition 键，用**不带 insert 的 id 覆盖条目**（见配置一节）。
 
 ## 配置
 
@@ -94,6 +76,14 @@ pnpm add dsh-plugin-memory
 ### 设置面板（热改）
 
 `enabled` / `memoryDir` / `autoInject` / `registerSkill` 四项在 DSH 设置页的「记忆 Memory」区块中可改，**即时生效**：boot 注入、技能注册随修改立即重建；记忆目录切换时自动为新目录初始化脚手架（`scaffold: true` 时）。其余键（`bootFiles` / `bootMaxChars` / `scaffold` / `configFile`）只在 composition 配置层生效，改完需重启。
+
+覆盖 composition 键（例如把 boot 块预算调大），在 profile 的 `cordis.patch.yml` 里写**不带 `insert` 的 id 覆盖条目**：
+
+```yaml
+- id: dsh-memory
+  config:
+    bootMaxChars: 12000
+```
 
 > 实现说明：DSH 的 settings wire 只服务硬编码的命名空间白名单，插件命名空间写不进去，因此本插件走自建通道——配置存 `<dshHome>/memory.json`（schema 校验 + 原子落盘），由插件自注册的 `GET/POST /api/memory/config` 路由服务，客户端区块 fetch 直连。
 
