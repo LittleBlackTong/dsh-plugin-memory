@@ -18,6 +18,8 @@
 - **复利记忆**：遵循 Karpathy 的 *LLM Wiki* 约定——记忆是"一次编译、持续保鲜"的持久产物，不是每次查询重新 RAG。remember / recall / consolidate / forget 四操作 + salience 三级衰减。
 - **可迁移**：记忆本体是纯 markdown + git + 自描述 schema，任何能读 markdown 的 agent 都能接手。`dsh-memory pack/unpack` 打包迁移。
 - **内嵌技能**：通过 `ctx.skills.register()` 注册 `memory` 技能（操作协议随插件分发）；项目级 `.dsh/skills/memory` 文件技能仍可覆盖它。
+- **防懒 digest 唤醒**：每轮结束后，若 agent 空闲且记忆库超过 `digestNudgeAfterMinutes` 未写入，插件注入一条 digest 提醒（合成消息，走 `agent.followup`），把"会话收尾沉淀"从靠自觉变成有机制兜底；带冷却与每会话限次，不骚扰。**独立于 dsh-plugin-heartbeat**，两插件各自可装、互不依赖。
+- **git 自动提交**：记忆库变更静默 `autoCommitQuietSeconds` 后自动 `git add -A && git commit`（无 `.git` 则跳过）——历史可回滚不再依赖 agent 记得 commit。
 - **设置面板**：在 DSH 设置页提供「记忆 Memory」区块——总开关、记忆目录、开机注入、技能注册四项均可热改，立即生效，无需重启。
 - **零构建**：纯 ESM JavaScript，无编译步骤，`pnpm add` 即用。
 
@@ -72,10 +74,17 @@ dsh plugin --profile <profile> add dsh-plugin-memory
 | `registerSkill` | `true` | 注册内嵌 `memory` 技能 |
 | `scaffold` | `true` | 记忆库缺失时自动创建模板（只建不覆盖） |
 | `configFile` | `<dshHome>/memory.json` | 用户可改配置的 JSON 文件路径（设置面板读写它） |
+| `digestNudgeEnabled` | `true` | 防懒 digest 提醒总开关（composition） |
+| `digestNudgeAfterMinutes` | `120` | 记忆库超过多久未写入就提醒 |
+| `digestNudgeCooldownMinutes` | `180` | 两次提醒的最小间隔 |
+| `digestNudgeMaxPerSession` | `2` | 每个会话最多提醒次数 |
+| `autoCommit` | `true` | 记忆库 git 自动提交开关（composition） |
+| `autoCommitQuietSeconds` | `60` | 变更静默多久后提交（防抖） |
+| `autoCommitIntervalSeconds` | `60` | 变更轮询间隔 |
 
 ### 设置面板（热改）
 
-`enabled` / `memoryDir` / `autoInject` / `registerSkill` 四项在 DSH 设置页的「记忆 Memory」区块中可改，**即时生效**：boot 注入、技能注册随修改立即重建；记忆目录切换时自动为新目录初始化脚手架（`scaffold: true` 时）。其余键（`bootFiles` / `bootMaxChars` / `scaffold` / `configFile`）只在 composition 配置层生效，改完需重启。
+`enabled` / `memoryDir` / `autoInject` / `registerSkill` 四项在 DSH 设置页的「记忆 Memory」区块中可改，**即时生效**：boot 注入、技能注册随修改立即重建；记忆目录切换时自动为新目录初始化脚手架（`scaffold: true` 时）。其余键（`bootFiles` / `bootMaxChars` / `scaffold` / `configFile` / `digestNudge*` / `autoCommit*`）只在 composition 配置层生效，改完需重启。
 
 覆盖 composition 键（例如把 boot 块预算调大），在 profile 的 `cordis.patch.yml` 里写**不带 `insert` 的 id 覆盖条目**：
 
