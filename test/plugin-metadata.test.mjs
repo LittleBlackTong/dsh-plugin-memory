@@ -34,7 +34,10 @@ function makeFakeCtx() {
         return () => disposed.push('skills')
       },
     },
-    logger: { info() {} },
+    logger: { info() {}, warn() {} },
+    on() {
+      return () => {}
+    },
     inject(deps, callback) {
       injects.push({ deps, callback })
     },
