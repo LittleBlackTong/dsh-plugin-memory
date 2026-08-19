@@ -124,11 +124,14 @@ function cmdStatus(store) {
     byType[t] = (byType[t] || 0) + 1
   }
   const last = walk(store).map((f) => statSync(f).mtimeMs).sort((a, b) => b - a)[0]
+  const logPath = join(store, 'log.md')
+  const logMtime = existsSync(logPath) ? statSync(logPath).mtimeMs : 0
   console.log(`store: ${store}`)
   console.log(`pages: ${ps.length}`)
   console.log(`total page bytes: ${bytes}`)
   console.log(`by type: ${JSON.stringify(byType)}`)
   console.log(`last modified: ${last ? new Date(last).toISOString() : 'n/a'}`)
+  console.log(`last log write: ${logMtime ? `${new Date(logMtime).toISOString()} (${Math.round((Date.now() - logMtime) / 60000)} min ago)` : 'n/a'}`)
 }
 
 function manifestFor(storePath) {
