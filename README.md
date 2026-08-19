@@ -15,6 +15,7 @@
 
 - **开机强制注入**：插件通过 `ctx.systemPrompt.context()` 把记忆 boot 块（`SOUL.md` 人格 + `MEMORY.md` 协议 + `index.md` 目录 + 最近动态）注入每个会话开头。宿主按投影去重：记忆不变就不重复注入，变化时新快照自动取代旧的——这是"新会话必先加载记忆"的**硬保障**，不需要模型碰运气调技能。
 - **SOUL.md 铸魂**：安装后首要任务是和用户对话定义灵魂（名字、性格、价值观、语气、边界）、确认身份与关系（`BOOTSTRAP.md` 清单驱动，complete 前优先于常规任务）。
+- **铸魂自动引导**：记忆库还没有灵魂（`BOOTSTRAP.md` 非 complete，或 `SOUL.md` 仍是占位模板）时，boot 块会自动前置一段第一人称引导词——「我的首要任务是确认我是谁，还有你是谁：我叫什么名字、怎么称呼你、你我是什么关系、我该是什么样的性格」——像 OpenClaw 初始化那样，**由 agent 在对话里主动发起铸魂**，逐项问、逐项写回，而不是等用户来喂。铸魂完成后引导词自动消失，零开销。
 - **复利记忆**：遵循 Karpathy 的 *LLM Wiki* 约定——记忆是"一次编译、持续保鲜"的持久产物，不是每次查询重新 RAG。remember / recall / consolidate / forget 四操作 + salience 三级衰减。
 - **可迁移**：记忆本体是纯 markdown + git + 自描述 schema，任何能读 markdown 的 agent 都能接手。`dsh-memory pack/unpack` 打包迁移。
 - **内嵌技能**：通过 `ctx.skills.register()` 注册 `memory` 技能（操作协议随插件分发）；项目级 `.dsh/skills/memory` 文件技能仍可覆盖它。
