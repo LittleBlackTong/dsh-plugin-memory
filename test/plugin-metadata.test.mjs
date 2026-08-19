@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict'
+import { execFileSync } from 'node:child_process'
 import { mkdtempSync, readFileSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -229,6 +230,30 @@ test('store: corrupt file is ignored, watchers fire on update', () => {
   unwatch()
   store.update({ memoryDir: '/tmp/changed-2' })
   assert.deepEqual(seen, ['/tmp/changed'])
+})
+
+test('wiring: apply() starts the auto-committer and flushes a dirty git store', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'dsh-memory-wiring-'))
+  const cfgDir = mkdtempSync(join(tmpdir(), 'dsh-memory-wiring-cfg-'))
+  execFileSync('git', ['-C', dir, 'init', '-q'])
+  execFileSync('git', ['-C', dir, 'config', 'user.email', 'test@example.com'])
+  execFileSync('git', ['-C', dir, 'config', 'user.name', 'test'])
+  writeFileSync(join(dir, 'SOUL.md'), '# soul\n')
+
+  const { ctx } = makeFakeCtx()
+  const dispose = plugin(ctx, {
+    ...CFG,
+    memoryDir: dir,
+    scaffold: false,
+    autoCommit: true,
+    configFile: join(cfgDir, 'memory.json'),
+  })
+  const count = Number(execFileSync(
+    'git', ['-C', dir, 'rev-list', '--count', 'HEAD'],
+    { encoding: 'utf8' },
+  ).trim())
+  assert.equal(count, 1, 'pre-existing dirty state committed at startup')
+  dispose()
 })
 
 test('ships a dsh.bundle manifest so `dsh plugin add` can mount it', () => {
