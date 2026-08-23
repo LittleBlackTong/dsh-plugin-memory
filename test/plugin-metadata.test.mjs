@@ -129,6 +129,10 @@ test('registers the config route and GET serves the resolved config', async () =
     memoryDir: CFG.memoryDir,
     autoInject: true,
     registerSkill: true,
+    recallEnabled: true,
+    recallIntervalMinMinutes: 30,
+    recallIntervalMaxMinutes: 240,
+    recallMaxPerSession: 3,
   })
   dispose()
 })

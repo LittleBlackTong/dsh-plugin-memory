@@ -20,8 +20,9 @@
 - **可迁移**：记忆本体是纯 markdown + git + 自描述 schema，任何能读 markdown 的 agent 都能接手。`dsh-memory pack/unpack` 打包迁移。
 - **内嵌技能**：通过 `ctx.skills.register()` 注册 `memory` 技能（操作协议随插件分发）；项目级 `.dsh/skills/memory` 文件技能仍可覆盖它。
 - **防懒 digest 唤醒**：每轮结束后，若 agent 空闲且记忆库超过 `digestNudgeAfterMinutes` 未写入，插件注入一条 digest 提醒（合成消息，走 `agent.followup`），把"会话收尾沉淀"从靠自觉变成有机制兜底；带冷却与每会话限次，不骚扰。**独立于 dsh-plugin-heartbeat**，两插件各自可装、互不依赖。
+- **主动追忆（拟人化）**：对话空下来时，插件会以第一人称主动提起一件**真实记得**的、关于用户或你们之间的事（偏好、往事、未了的决定、最近的进展），把记忆从"只写回"变成"也用起来"——像老友自然想起那样，而非报状态。间隔在最短/最长之间**随机取值**（不固定节奏），配合每会话限次，不骚扰、不编造、不硬聊；纯对话行为，不写记忆库。**同样独立于 heartbeat**。
 - **git 自动提交**：记忆库变更静默 `autoCommitQuietSeconds` 后自动 `git add -A && git commit`（无 `.git` 则跳过）——历史可回滚不再依赖 agent 记得 commit。
-- **设置面板**：在 DSH 设置页提供「记忆 Memory」区块——总开关、记忆目录、开机注入、技能注册四项均可热改，立即生效，无需重启。
+- **设置面板**：在 DSH 设置页提供「记忆 Memory」区块——总开关、记忆目录、开机注入、技能注册、主动追忆（开关 + 随机间隔范围 + 每会话次数）均可热改，立即生效，无需重启。
 - **零构建**：纯 ESM JavaScript，无编译步骤，`pnpm add` 即用。
 
 ## 架构
@@ -32,6 +33,8 @@
 dsh-plugin-memory（本插件）
 ├── lib/index.js        # Cordis 入口：boot 注入 + 运行时技能注册 + settings 热改
 ├── lib/boot.js         # boot 块渲染（SOUL/MEMORY/index + 最近 log，限额截断）
+├── lib/digest-guard.js # 防懒 digest 唤醒（空闲 + 记忆库久未写 → followup 提醒）
+├── lib/recall-nudge.js # 主动追忆（空闲 → 第一人称提起一件真实往事，纯对话不写库）
 ├── lib/scaffold.js     # 记忆库脚手架（模板只建不覆盖）
 ├── lib/client.js       # 客户端半：设置面板「记忆 Memory」区块
 ├── skills/memory.md    # 内嵌技能的操作协议正文
@@ -59,7 +62,7 @@ dsh plugin --profile <profile> add dsh-plugin-memory
 > ⚠️ **不要**再往 profile 的 `cordis.patch.yml` 里手写 `- insert: {id: dsh-memory, ...}`：
 > 那会与 bundle manifest 的自动挂载产生两条同名 entry，整个 profile 会以
 > `duplicate loader entry id "dsh-memory"` 启动失败（2026-08-18 实机事故）。
-> 运行期配置（enabled / memoryDir / autoInject / registerSkill）改走
+> 运行期配置（enabled / memoryDir / autoInject / registerSkill / recallEnabled）改走
 > `<dshHome>/memory.json`（设置面板热改）；composition 配置见下表。
 > 如需覆盖某个 composition 键，用**不带 insert 的 id 覆盖条目**（见配置一节）。
 
@@ -79,13 +82,17 @@ dsh plugin --profile <profile> add dsh-plugin-memory
 | `digestNudgeAfterMinutes` | `120` | 记忆库超过多久未写入就提醒 |
 | `digestNudgeCooldownMinutes` | `180` | 两次提醒的最小间隔 |
 | `digestNudgeMaxPerSession` | `2` | 每个会话最多提醒次数 |
+| `recallEnabled` | `true` | 主动追忆总开关（面板可热改） |
+| `recallIntervalMinMinutes` | `30` | 随机间隔下限（分钟，面板可热改） |
+| `recallIntervalMaxMinutes` | `240` | 随机间隔上限（分钟，面板可热改） |
+| `recallMaxPerSession` | `3` | 每个会话最多追忆次数（面板可热改） |
 | `autoCommit` | `true` | 记忆库 git 自动提交开关（composition） |
 | `autoCommitQuietSeconds` | `60` | 变更静默多久后提交（防抖） |
 | `autoCommitIntervalSeconds` | `60` | 变更轮询间隔 |
 
 ### 设置面板（热改）
 
-`enabled` / `memoryDir` / `autoInject` / `registerSkill` 四项在 DSH 设置页的「记忆 Memory」区块中可改，**即时生效**：boot 注入、技能注册随修改立即重建；记忆目录切换时自动为新目录初始化脚手架（`scaffold: true` 时）。其余键（`bootFiles` / `bootMaxChars` / `scaffold` / `configFile` / `digestNudge*` / `autoCommit*`）只在 composition 配置层生效，改完需重启。
+`enabled` / `memoryDir` / `autoInject` / `registerSkill` / `recallEnabled` / `recallIntervalMinMinutes` / `recallIntervalMaxMinutes` / `recallMaxPerSession` 八项在 DSH 设置页的「记忆 Memory」区块中可改，**即时生效**：boot 注入、技能注册、主动追忆（含随机间隔与次数）随修改立即生效；记忆目录切换时自动为新目录初始化脚手架（`scaffold: true` 时）。其余键（`bootFiles` / `bootMaxChars` / `scaffold` / `configFile` / `digestNudge*` / `autoCommit*`）只在 composition 配置层生效，改完需重启。
 
 覆盖 composition 键（例如把 boot 块预算调大），在 profile 的 `cordis.patch.yml` 里写**不带 `insert` 的 id 覆盖条目**：
 

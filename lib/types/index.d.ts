@@ -30,6 +30,28 @@ export interface MemoryConfig {
   scaffold?: boolean
   /** Absolute user-facing config-file path. Default `<dshHome>/memory.json`. */
   configFile?: string
+  /** Digest guard: inject a reminder when the store goes unwritten too long. Default `true`. */
+  digestNudgeEnabled?: boolean
+  /** Minutes of store inactivity before a digest reminder. Default `120`. */
+  digestNudgeAfterMinutes?: number
+  /** Minimum minutes between digest reminders. Default `180`. */
+  digestNudgeCooldownMinutes?: number
+  /** Max digest reminders per session. Default `2`. */
+  digestNudgeMaxPerSession?: number
+  /** Recall nudge: idle-time first-person recall of a real memory. Default `true`. */
+  recallEnabled?: boolean
+  /** Lower bound (minutes) of the random recall interval. Default `30`. */
+  recallIntervalMinMinutes?: number
+  /** Upper bound (minutes) of the random recall interval. Default `240`. */
+  recallIntervalMaxMinutes?: number
+  /** Max recall nudges per session. Default `3`. */
+  recallMaxPerSession?: number
+  /** Auto-commit the store's git history after a quiet period. Default `true`. */
+  autoCommit?: boolean
+  /** Seconds of quiet before an auto-commit. Default `60`. */
+  autoCommitQuietSeconds?: number
+  /** Poll interval (seconds) for the auto-committer. Default `60`. */
+  autoCommitIntervalSeconds?: number
 }
 
 /** Schemastery schema for {@link MemoryConfig}. */
@@ -44,6 +66,10 @@ export interface MemorySettings {
   memoryDir?: string
   autoInject?: boolean
   registerSkill?: boolean
+  recallEnabled?: boolean
+  recallIntervalMinMinutes?: number
+  recallIntervalMaxMinutes?: number
+  recallMaxPerSession?: number
 }
 
 /** Schemastery schema for {@link MemorySettings}. */
