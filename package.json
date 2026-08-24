@@ -34,6 +34,7 @@
     "scripts/**",
     "docs/**",
     "cordis.patch.yml",
+    "CHANGELOG.md",
     "README.md",
     "LICENSE"
   ],
