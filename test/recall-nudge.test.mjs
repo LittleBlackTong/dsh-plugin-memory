@@ -10,12 +10,13 @@ import {
   listRecallCandidates,
   randomIntervalMs,
 } from '../lib/recall-nudge.js'
+import { ActivityTracker } from '../lib/activity-tracker.js'
 
-/** Fake root agent with the surface RecallNudge touches. */
-function makeAgent({ status = 'idle', nextStep = [] } = {}) {
+/** Fake root agent with the surface RecallNudge + ActivityTracker touch. */
+function makeAgent({ id = 'root-1', status = 'idle', nextStep = [] } = {}) {
   const listeners = new Map()
   const agent = {
-    id: 'root-1',
+    id,
     status,
     inbox: { nextStep },
     followups: [],
@@ -30,6 +31,7 @@ function makeAgent({ status = 'idle', nextStep = [] } = {}) {
     },
   }
   agent.emitTurnStopped = () => listeners.get('agent/turn-stopping')?.()
+  agent.emitInboxInserted = (message) => listeners.get('agent/inbox/inserted')?.({ message })
   return agent
 }
 
@@ -47,7 +49,7 @@ function makeStore(withLog = true) {
   return dir
 }
 
-function makeNudge(agent, dir, overrides = {}) {
+function makeNudge(agent, dir, overrides = {}, tracker) {
   const config = {
     enabled: true,
     minMinutes: 0,
@@ -58,7 +60,16 @@ function makeNudge(agent, dir, overrides = {}) {
   return new RecallNudge(agent, {
     readConfig: () => config,
     getMemoryDir: () => dir,
+    tracker,
   })
+}
+
+/** A tracker with `agent` attached and one real user message recorded. */
+function makeSpokenTracker(agent) {
+  const tracker = new ActivityTracker()
+  tracker.attach(agent)
+  agent.emitInboxInserted({ source: { kind: 'user' } })
+  return tracker
 }
 
 test('listRecallCandidates: recent log headlines, empty when no log', () => {
@@ -91,23 +102,69 @@ test('buildRecallNudgeMessage has the followup shape the harness expects', () =>
   assert.equal(message.source.plugin, 'memory')
 })
 
-test('recalls an idle agent when the store has a log', () => {
+test('arms on first eligible idle, then recalls after the (zero) interval', () => {
   const agent = makeAgent()
-  const nudge = makeNudge(agent, makeStore())
+  const dir = makeStore()
+  const tracker = makeSpokenTracker(agent)
+  const nudge = makeNudge(agent, dir, {}, tracker)
   nudge.start()
-  agent.emitTurnStopped()
+  agent.emitTurnStopped() // arms the interval (min=0 → 0ms)
+  assert.equal(agent.followups.length, 0)
+  agent.emitTurnStopped() // interval elapsed → fire
   assert.equal(agent.followups.length, 1)
   assert.equal(agent.followups[0].source.plugin, 'memory')
   nudge.dispose()
+  rmSync(dir, { recursive: true, force: true })
 })
 
 test('stays quiet when there is nothing to recall (no log)', () => {
   const agent = makeAgent()
-  const nudge = makeNudge(agent, makeStore(false))
+  const dir = makeStore(false)
+  const tracker = makeSpokenTracker(agent)
+  const nudge = makeNudge(agent, dir, {}, tracker)
   nudge.start()
+  agent.emitTurnStopped()
   agent.emitTurnStopped()
   assert.equal(agent.followups.length, 0)
   nudge.dispose()
+  rmSync(dir, { recursive: true, force: true })
+})
+
+test('never recalls before the user has spoken (defer gate)', () => {
+  const agent = makeAgent()
+  const dir = makeStore()
+  const tracker = new ActivityTracker()
+  tracker.attach(agent) // NOT spoken
+  const nudge = makeNudge(agent, dir, {}, tracker)
+  nudge.start()
+  agent.emitTurnStopped()
+  agent.emitTurnStopped()
+  assert.equal(agent.followups.length, 0)
+  nudge.dispose()
+  rmSync(dir, { recursive: true, force: true })
+})
+
+test('only the active session recalls (active gate)', () => {
+  const agentA = makeAgent({ id: 'root-a' })
+  const agentB = makeAgent({ id: 'root-b' })
+  const dir = makeStore()
+  const tracker = new ActivityTracker()
+  tracker.attach(agentA)
+  tracker.attach(agentB)
+  // User spoke to A first, then B → B is the active session.
+  agentA.emitInboxInserted({ source: { kind: 'user' } })
+  agentB.emitInboxInserted({ source: { kind: 'user' } })
+
+  const nudgeA = makeNudge(agentA, dir, {}, tracker)
+  const nudgeB = makeNudge(agentB, dir, {}, tracker)
+  nudgeA.start()
+  nudgeB.start()
+  agentA.emitTurnStopped(); agentA.emitTurnStopped()
+  agentB.emitTurnStopped(); agentB.emitTurnStopped()
+  assert.equal(agentA.followups.length, 0, 'non-active session must stay quiet')
+  assert.equal(agentB.followups.length, 1, 'active session recalls')
+  nudgeA.dispose(); nudgeB.dispose()
+  rmSync(dir, { recursive: true, force: true })
 })
 
 test('stays quiet while the agent is busy', () => {
@@ -130,23 +187,31 @@ test('stays quiet when a next-turn step is already queued', () => {
 
 test('respects maxPerSession: at most N recalls per session', () => {
   const agent = makeAgent()
-  const nudge = makeNudge(agent, makeStore(), { maxPerSession: 2 })
+  const dir = makeStore()
+  const tracker = makeSpokenTracker(agent)
+  const nudge = makeNudge(agent, dir, { maxPerSession: 2 }, tracker)
   nudge.start()
-  agent.emitTurnStopped()
-  agent.emitTurnStopped()
-  agent.emitTurnStopped()
+  agent.emitTurnStopped() // arm
+  agent.emitTurnStopped() // fire #1
+  agent.emitTurnStopped() // fire #2
+  agent.emitTurnStopped() // capped
   assert.equal(agent.followups.length, 2)
   nudge.dispose()
+  rmSync(dir, { recursive: true, force: true })
 })
 
-test('respects the interval between recalls', () => {
+test('first eligible idle arms the interval and does not fire within it', () => {
   const agent = makeAgent()
-  const nudge = makeNudge(agent, makeStore(), { minMinutes: 60, maxMinutes: 60 })
+  const dir = makeStore()
+  const tracker = makeSpokenTracker(agent)
+  const nudge = makeNudge(agent, dir, { minMinutes: 60, maxMinutes: 60 }, tracker)
   nudge.start()
-  agent.emitTurnStopped()
-  agent.emitTurnStopped()
-  assert.equal(agent.followups.length, 1)
+  agent.emitTurnStopped() // arm: next = now + 60min
+  assert.equal(agent.followups.length, 0)
+  agent.emitTurnStopped() // still within the interval
+  assert.equal(agent.followups.length, 0)
   nudge.dispose()
+  rmSync(dir, { recursive: true, force: true })
 })
 
 test('disabled: never recalls', () => {
@@ -170,13 +235,18 @@ test('dispose stops observing turn boundaries', () => {
 test('polls while fully idle: fires a recall with no turn boundary', (t) => {
   t.mock.timers.enable({ apis: ['setInterval'] })
   const agent = makeAgent()
-  const nudge = makeNudge(agent, makeStore(), { minMinutes: 0, maxMinutes: 0 })
+  const dir = makeStore()
+  const tracker = makeSpokenTracker(agent)
+  const nudge = makeNudge(agent, dir, {}, tracker)
   nudge.start()
-  // No turn boundary emitted — the poll timer alone must trigger it.
-  t.mock.timers.tick(30000)
+  // No turn boundary emitted — the poll timer alone must arm, then fire.
+  t.mock.timers.tick(30000) // first poll: arms (min=0)
+  assert.equal(agent.followups.length, 0)
+  t.mock.timers.tick(30000) // second poll: fires
   assert.equal(agent.followups.length, 1)
   assert.equal(agent.followups[0].source.plugin, 'memory')
   nudge.dispose()
+  rmSync(dir, { recursive: true, force: true })
 })
 
 test('randomIntervalMs stays within [min, max] and clamps max < min', () => {

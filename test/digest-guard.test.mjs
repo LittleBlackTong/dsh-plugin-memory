@@ -9,12 +9,13 @@ import {
   buildDigestNudgeMessage,
   lastStoreWriteMs,
 } from '../lib/digest-guard.js'
+import { ActivityTracker } from '../lib/activity-tracker.js'
 
-/** Fake root agent with the surface DigestGuard touches. */
-function makeAgent({ status = 'idle', nextStep = [] } = {}) {
+/** Fake root agent with the surface DigestGuard + ActivityTracker touch. */
+function makeAgent({ id = 'root-1', status = 'idle', nextStep = [] } = {}) {
   const listeners = new Map()
   const agent = {
-    id: 'root-1',
+    id,
     status,
     inbox: { nextStep },
     followups: [],
@@ -29,6 +30,7 @@ function makeAgent({ status = 'idle', nextStep = [] } = {}) {
     },
   }
   agent.emitTurnStopped = () => listeners.get('agent/turn-stopping')?.()
+  agent.emitInboxInserted = (message) => listeners.get('agent/inbox/inserted')?.({ message })
   return agent
 }
 
@@ -45,7 +47,7 @@ function makeStore(ageMinutes) {
   return dir
 }
 
-function makeGuard(agent, dir, overrides = {}) {
+function makeGuard(agent, dir, overrides = {}, tracker) {
   const config = {
     enabled: true,
     afterMinutes: 1,
@@ -56,7 +58,16 @@ function makeGuard(agent, dir, overrides = {}) {
   return new DigestGuard(agent, {
     readConfig: () => config,
     getMemoryDir: () => dir,
+    tracker,
   })
+}
+
+/** A tracker with `agent` attached and one real user message recorded. */
+function makeSpokenTracker(agent) {
+  const tracker = new ActivityTracker()
+  tracker.attach(agent)
+  agent.emitInboxInserted({ source: { kind: 'user' } })
+  return tracker
 }
 
 test('lastStoreWriteMs: 0 for missing markers, latest mtime across markers', () => {
@@ -152,4 +163,38 @@ test('dispose stops observing turn boundaries', () => {
   guard.dispose()
   agent.emitTurnStopped()
   assert.equal(agent.followups.length, 0)
+})
+
+test('never nudges before the user has spoken (defer gate)', () => {
+  const agent = makeAgent()
+  const dir = makeStore(10)
+  const tracker = new ActivityTracker()
+  tracker.attach(agent) // NOT spoken
+  const guard = makeGuard(agent, dir, {}, tracker)
+  guard.start()
+  agent.emitTurnStopped()
+  agent.emitTurnStopped()
+  assert.equal(agent.followups.length, 0)
+  guard.dispose()
+})
+
+test('only the active session nudges (active gate)', () => {
+  const agentA = makeAgent({ id: 'root-a' })
+  const agentB = makeAgent({ id: 'root-b' })
+  const dir = makeStore(10)
+  const tracker = new ActivityTracker()
+  tracker.attach(agentA)
+  tracker.attach(agentB)
+  agentA.emitInboxInserted({ source: { kind: 'user' } })
+  agentB.emitInboxInserted({ source: { kind: 'user' } }) // B is active
+
+  const guardA = makeGuard(agentA, dir, {}, tracker)
+  const guardB = makeGuard(agentB, dir, {}, tracker)
+  guardA.start()
+  guardB.start()
+  agentA.emitTurnStopped()
+  agentB.emitTurnStopped()
+  assert.equal(agentA.followups.length, 0, 'non-active session must stay quiet')
+  assert.equal(agentB.followups.length, 1, 'active session nudges')
+  guardA.dispose(); guardB.dispose()
 })

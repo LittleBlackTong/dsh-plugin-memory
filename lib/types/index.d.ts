@@ -10,7 +10,7 @@ import type { Context } from '@deepseek-ai/cordis'
 export const name: 'memory'
 
 /** Services required by the plugin. */
-export const inject: ['systemPrompt', 'skills']
+export const inject: ['systemPrompt', 'skills', 'agents']
 
 /** User-facing plugin configuration (all fields optional). */
 export interface MemoryConfig {
@@ -24,6 +24,10 @@ export interface MemoryConfig {
   bootMaxChars?: number
   /** Inject the boot block at session start. Default `true`. */
   autoInject?: boolean
+  /** Don't inject anything until the session's first real user message. Default `true`. */
+  deferUntilUserSpeaks?: boolean
+  /** Only inject for the currently active session (most recent user message). Default `true`. */
+  activeSessionOnly?: boolean
   /** Register the embedded `memory` skill. Default `true`. */
   registerSkill?: boolean
   /** Create the store layout and templates when missing. Default `true`. */
@@ -65,6 +69,8 @@ export interface MemorySettings {
   enabled?: boolean
   memoryDir?: string
   autoInject?: boolean
+  deferUntilUserSpeaks?: boolean
+  activeSessionOnly?: boolean
   registerSkill?: boolean
   recallEnabled?: boolean
   recallIntervalMinMinutes?: number
@@ -94,7 +100,7 @@ export function resolveMemoryDir(dir: string): string
 export interface MemoryPlugin {
   (ctx: Context, config?: MemoryConfig): () => void
   readonly name: 'memory'
-  readonly inject: ['systemPrompt', 'skills']
+  readonly inject: ['systemPrompt', 'skills', 'agents']
   readonly Config: import('@deepseek-ai/schemastery').default<MemoryConfig>
 }
 
@@ -113,3 +119,18 @@ export function renderBootBlock(
 
 /** Create the memory-store layout if missing. Returns created paths. */
 export function ensureMemoryScaffold(memoryDir: string): string[]
+
+/**
+ * Per-agent activity tracker behind the two polite-injection gates
+ * (`deferUntilUserSpeaks` + `activeSessionOnly`).
+ */
+export class ActivityTracker {
+  constructor(options?: { agents?: unknown; logger?: unknown })
+  attach(agent: unknown): void
+  noteUserMessage(id: string): void
+  detach(id: string): void
+  hasUserSpoken(id: string): boolean
+  isActive(id: string): boolean
+  shouldInject(id: string, config?: { deferUntilUserSpeaks?: boolean; activeSessionOnly?: boolean }): boolean
+  dispose(): void
+}

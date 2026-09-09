@@ -2,6 +2,22 @@
 
 所有记录跟随 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/) 风格；版本号与 `package.json` 保持一致。
 
+## [0.6.0] - 2026-09-09
+
+### Added（两道礼貌闸门：提问后才注入 + 只注入激活会话）
+
+- **`deferUntilUserSpeaks`**（默认开）：会话收到第一条真实用户消息（`source.kind === 'user'`）前，boot 块、主动追忆、digest 提醒一律不注入——杜绝「开了会话啥也没问就自动蹦提示词」。
+- **`activeSessionOnly`**（默认开）：只对「最近收到用户消息的 live root agent」注入，后台 / 未展开会话不再被追忆或 digest 提醒打扰。
+- 新增 `lib/activity-tracker.js`：per-agent 状态表（`hasUserSpoken` + 最近用户消息次序），三个注入点共用同一 `shouldInject` 谓词，口径一致。
+
+### Fixed
+
+- 主动追忆首拍立即开火：`nextRecallAt` 初始值为 0 → 第一次 idle 检查就触发。改为「首个满足条件的空闲时刻先 arm 间隔，再等一个随机间隔后才开口」。
+
+### Tests
+
+- 54/54 全过（新增 activity-tracker 套件：hasUserSpoken / isActive / shouldInject / 去重 / 注册表跳过死亡 agent；recall / digest 各补 defer + active 两个闸门用例，并更新首拍 arm 语义用例）。
+
 ## [0.5.2] - 2026-08-31
 
 ### Changed

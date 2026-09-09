@@ -13,7 +13,7 @@
 
 ## 特性
 
-- **开机强制注入**：插件通过 `ctx.systemPrompt.context()` 把记忆 boot 块（`SOUL.md` 人格 + `MEMORY.md` 协议 + `index.md` 目录 + 最近动态）注入每个会话开头。宿主按投影去重：记忆不变就不重复注入，变化时新快照自动取代旧的——这是"新会话必先加载记忆"的**硬保障**，不需要模型碰运气调技能。
+- **开机强制注入**：插件通过 `ctx.systemPrompt.context()` 把记忆 boot 块（`SOUL.md` 人格 + `MEMORY.md` 协议 + `index.md` 目录 + 最近动态）注入会话上下文。宿主按投影去重：记忆不变就不重复注入，变化时新快照自动取代旧的——这是"新会话必先加载记忆"的**硬保障**，不需要模型碰运气调技能。默认还带**两道礼貌闸门**：`deferUntilUserSpeaks`（用户开口后才注入）与 `activeSessionOnly`（只注入当前激活会话），见「配置」。
 - **SOUL.md 铸魂**：安装后首要任务是和用户对话定义灵魂（名字、性格、价值观、语气、边界）、确认身份与关系（`BOOTSTRAP.md` 清单驱动，complete 前优先于常规任务）。
 - **铸魂自动引导**：记忆库还没有灵魂（`BOOTSTRAP.md` 非 complete，或 `SOUL.md` 仍是占位模板）时，boot 块会自动前置一段第一人称引导词——「我的首要任务是确认我是谁，还有你是谁：我叫什么名字、怎么称呼你、你我是什么关系、我该是什么样的性格」——像 OpenClaw 初始化那样，**由 agent 在对话里主动发起铸魂**，逐项问、逐项写回，而不是等用户来喂。铸魂完成后引导词自动消失，零开销。
 - **复利记忆**：遵循 Karpathy 的 *LLM Wiki* 约定——记忆是"一次编译、持续保鲜"的持久产物，不是每次查询重新 RAG。remember / recall / consolidate / forget 四操作 + salience 三级衰减。
@@ -33,6 +33,7 @@
 dsh-plugin-memory（本插件）
 ├── lib/index.js        # Cordis 入口：boot 注入 + 运行时技能注册 + settings 热改
 ├── lib/boot.js         # boot 块渲染（SOUL/MEMORY/index + 最近 log，限额截断）
+├── lib/activity-tracker.js # 两道礼貌闸门：用户是否开口 + 当前激活会话
 ├── lib/digest-guard.js # 防懒 digest 唤醒（空闲 + 记忆库久未写 → followup 提醒）
 ├── lib/recall-nudge.js # 主动追忆（空闲 → 第一人称提起一件真实往事，纯对话不写库）
 ├── lib/scaffold.js     # 记忆库脚手架（模板只建不覆盖）
@@ -75,6 +76,8 @@ dsh plugin --profile <profile> add dsh-plugin-memory
 | `bootFiles` | `[SOUL.md, MEMORY.md, index.md]` | 开机注入的文件 |
 | `bootMaxChars` | `6000` | boot 块总字符预算（防止占用过多上下文） |
 | `autoInject` | `true` | 会话开始时注入 boot 块 |
+| `deferUntilUserSpeaks` | `true` | 用户发出第一条真实消息后才注入（boot 块 / 追忆 / digest 提醒都遵守）；面板可热改 |
+| `activeSessionOnly` | `true` | 只对「当前激活会话」（最近收到用户消息的会话）注入，后台会话不打扰；面板可热改 |
 | `registerSkill` | `true` | 注册内嵌 `memory` 技能 |
 | `scaffold` | `true` | 记忆库缺失时自动创建模板（只建不覆盖） |
 | `configFile` | `<dshHome>/memory.json` | 用户可改配置的 JSON 文件路径（设置面板读写它） |
@@ -92,7 +95,9 @@ dsh plugin --profile <profile> add dsh-plugin-memory
 
 ### 设置面板（热改）
 
-`enabled` / `memoryDir` / `autoInject` / `registerSkill` / `recallEnabled` / `recallIntervalMinMinutes` / `recallIntervalMaxMinutes` / `recallMaxPerSession` 八项在 DSH 设置页的「记忆 Memory」区块中可改，**即时生效**：boot 注入、技能注册、主动追忆（含随机间隔与次数）随修改立即生效；记忆目录切换时自动为新目录初始化脚手架（`scaffold: true` 时）。其余键（`bootFiles` / `bootMaxChars` / `scaffold` / `configFile` / `digestNudge*` / `autoCommit*`）只在 composition 配置层生效，改完需重启。
+`enabled` / `memoryDir` / `autoInject` / `deferUntilUserSpeaks` / `activeSessionOnly` / `registerSkill` / `recallEnabled` / `recallIntervalMinMinutes` / `recallIntervalMaxMinutes` / `recallMaxPerSession` 十项在 DSH 设置页的「记忆 Memory」区块中可改，**即时生效**：boot 注入、两道礼貌闸门、技能注册、主动追忆（含随机间隔与次数）随修改立即生效；记忆目录切换时自动为新目录初始化脚手架（`scaffold: true` 时）。其余键（`bootFiles` / `bootMaxChars` / `scaffold` / `configFile` / `digestNudge*` / `autoCommit*`）只在 composition 配置层生效，改完需重启。
+
+> **「当前激活会话」怎么判？** DSH 宿主侧没有「浏览器当前聚焦的会话」信号（激活会话是前端概念）。插件用**最近一次收到真实用户消息的 live root agent**作为激活会话的代理：你在哪个会话里说话，哪个会话就激活；切到别处但不发消息时，宿主感知不到「切换」这个动作（这是代理的已知边界）。若日后需要精确到「展开/聚焦」级别，需补一小段客户端 focus 上报。
 
 覆盖 composition 键（例如把 boot 块预算调大），在 profile 的 `cordis.patch.yml` 里写**不带 `insert` 的 id 覆盖条目**：
 
