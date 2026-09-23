@@ -138,3 +138,47 @@ test('an empty graph renders nothing rather than an empty card', () => {
   const seam = loadClient()
   assert.equal(seam.GraphView({ graph: { nodes: [], edges: [], stats: { pages: 0 } } }), null)
 })
+
+test('the inlined view maths matches the canonical module', async () => {
+  const seam = loadClient()
+  const mod = await import('../lib/graph-view.js')
+  const base = { x: 0, y: 0, w: seam.GRAPH_W, h: seam.GRAPH_H }
+  // Zoom about an off-centre point, then pan — the two things a user does.
+  const mineZoom = seam.zoomAt(base, 123, 45, 1 / 1.15)
+  const modZoom = mod.zoomAt(base, 123, 45, 1 / 1.15)
+  for (const key of ['x', 'y', 'w', 'h']) {
+    assert.ok(Math.abs(mineZoom[key] - modZoom[key]) < 1e-9, `${key}: ${mineZoom[key]} vs ${modZoom[key]}`)
+  }
+  const scale = { scaleX: 0.5, scaleY: 0.5 }
+  // Sandbox objects come from another realm: compare by value, not prototype.
+  const plain = (v) => JSON.parse(JSON.stringify(v))
+  assert.deepEqual(plain(seam.panBy(base, 100, 40, scale)), plain(mod.panBy(base, 100, 40, scale)))
+  // Clamping must agree too: 40 zoom-ins hit the same ceiling in both copies.
+  let mine = base
+  let theirs = base
+  for (let i = 0; i < 40; i += 1) {
+    mine = seam.zoomAt(mine, 280, 170, 1 / 1.15)
+    theirs = mod.zoomAt(theirs, 280, 170, 1 / 1.15)
+  }
+  assert.ok(Math.abs(mine.w - theirs.w) < 1e-9)
+  assert.equal(mine.w, seam.GRAPH_W * seam.MIN_VIEW_SCALE, 'both copies must clamp at the same tightest viewport')
+  assert.ok(mine.w < seam.GRAPH_W * 0.45, 'zooming in must actually get closer than half the base width')
+})
+
+test('the graph polls on a sane interval so memory edits show up live', () => {
+  const seam = loadClient()
+  assert.ok(Number.isFinite(seam.GRAPH_REFRESH_MS))
+  assert.ok(seam.GRAPH_REFRESH_MS >= 5000, 'polling faster than 5s would hammer the store')
+  assert.ok(seam.GRAPH_REFRESH_MS <= 120000, 'polling slower than 2min stops feeling live')
+})
+
+test('screen points map to graph points through the current view', () => {
+  const seam = loadClient()
+  const rect = { left: 10, top: 20, width: seam.GRAPH_W, height: seam.GRAPH_H }
+  const plain = (v) => JSON.parse(JSON.stringify(v))
+  assert.deepEqual(plain(seam.toGraphPointIn({ x: 0, y: 0, w: seam.GRAPH_W, h: seam.GRAPH_H }, rect, 10, 20)), { x: 0, y: 0 })
+  const zoomed = seam.zoomAt({ x: 0, y: 0, w: seam.GRAPH_W, h: seam.GRAPH_H }, 280, 170, 0.5)
+  const centre = seam.toGraphPointIn(zoomed, rect, 10 + 280, 20 + 170)
+  assert.ok(Math.abs(centre.x - 280) < 1e-6)
+  assert.ok(Math.abs(centre.y - 170) < 1e-6)
+})
