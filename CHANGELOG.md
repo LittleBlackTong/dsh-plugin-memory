@@ -2,6 +2,23 @@
 
 所有记录跟随 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/) 风格；版本号与 `package.json` 保持一致。
 
+## [0.7.0] - 2026-09-23
+
+### Added（boot 预算按文件分配 + last_access 自动戳记）
+
+- **boot 预算不再平摊**（`lib/boot.js`）：旧规则是 `总预算 / 文件数` 平均分给每个文件，于是 `index.md` 一长大，**它的尾部就先被截掉**——agent 连「有这一页」都看不到，更谈不上 drill 进去。现在按文件分配：显式配额（新增 `bootFileBudgets`）→ 其余文件均分且以实际大小封顶 → 余额补回「仍有内容未注入」的文件（`index.md` 优先，其余按体积降序，单个文件最多补到均分额度的两倍）。每个文件都小于均分额度时，结果与旧规则逐字节一致。`bootMaxChars` 默认值同时从 `6000` 提到 `12000`——6000 全量塞不下「人格 + schema + 目录」，默认值偏小正是它被截断的原因之一。
+- **`last_access` 自动戳记**（新增 `lib/pages.js`）：`MEMORY.md` 的衰减规则依赖 `last_access`，但它一直是个没人写的字段——模板里有、规则里提到、代码里没有，所以每个页面都原地变老、衰减表形同虚设。现在会话收到第一条真实用户消息时，插件把 boot 块**实际注入到的页面**（boot 文件 + `index.md` 引用到的分类页）戳成当天：每会话一次、按天幂等、只改 `last_access` 一行、无 frontmatter 的页面不碰、`trackPageAccess: false` 可关。
+- **CLI**：新增 `dsh-memory touch [pages...]`（不带参数 = 全部页面），`search` 新增 `--touch`；`status` 增加陈旧页统计（>90 天未访问 / 缺 `last_access`）与最老戳记。
+- **`index.md` 定位为路由表**：脚手架模板、嵌入式 `memory` 技能与 `MEMORY.md` 模板同步写入「一行一页、摘要 ≤ 80 字、不写状态流水」的纪律——它会被完整注入，膨胀的代价是挤掉人格与其他记忆。
+
+### Fixed
+
+- **`lint` 在刚 `init` 的记忆库上误报**：脚手架 `log.md` 模板里的占位行 `## [YYYY-MM-DD] install | ...` 会被自己的 lint 规则判为「malformed entry」。占位行改为引用块（`> ## [...]`），lint 只认真正的 `## ` 行。
+
+### Tests
+
+- 78/78 全过（新增 `boot-budget` / `pages` / `page-access` / `cli` 四套：预算分配与截断行为、引用提取与戳记语义、插件端「首条用户消息 → 戳记」链路与 `trackPageAccess: false`、CLI 新建库自检与帮助文本）。
+
 ## [0.6.0] - 2026-09-09
 
 ### Added（两道礼貌闸门：提问后才注入 + 只注入激活会话）

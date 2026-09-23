@@ -4,9 +4,10 @@
  *
  * Usage:
  *   dsh-memory init [dir]                  # create the store scaffold (default $MEMORY_DIR or ~/.memory)
- *   dsh-memory search <query>              # full-text search across memory pages
+ *   dsh-memory search <query> [--touch]    # full-text search; --touch stamps last_access on the hits
+ *   dsh-memory touch [pages...]            # stamp last_access (all pages when none given)
  *   dsh-memory lint                        # integrity check (index vs files, orphans, log format)
- *   dsh-memory status                      # health summary (page counts, sizes, last modified)
+ *   dsh-memory status                      # health summary (page counts, sizes, staleness, last modified)
  *   dsh-memory pack [out.tar.gz]           # export a portable archive + manifest
  *   dsh-memory unpack <archive> [--force]  # restore from an archive
  *   dsh-memory --self-test                 # run a temp-dir round-trip test (npm test)
@@ -22,6 +23,7 @@ import { execFileSync } from 'node:child_process'
 import { tmpdir, homedir } from 'node:os'
 import { createHash } from 'node:crypto'
 import { ensureMemoryScaffold } from '../lib/scaffold.js'
+import { touchPages, accessSummary, today } from '../lib/pages.js'
 
 const META = new Set(['SOUL.md', 'MEMORY.md', 'BOOTSTRAP.md', 'index.md', 'log.md'])
 
@@ -74,17 +76,40 @@ function cmdInit(store, args) {
     : `store already present: ${store} (nothing created; existing files never overwritten)`)
 }
 
-function cmdSearch(store, query) {
+function cmdSearch(store, query, touch = false) {
   if (!query) fail('search needs a query')
   const q = query.toLowerCase()
   const hits = []
+  const hitPages = []
   for (const f of walk(store).filter((x) => x.endsWith('.md'))) {
     const text = readFileSync(f, 'utf8')
     for (const [i, line] of text.split('\n').entries()) {
-      if (line.toLowerCase().includes(q)) hits.push(`${relative(store, f)}:${i + 1}: ${line.trim().slice(0, 200)}`)
+      if (line.toLowerCase().includes(q)) {
+        hits.push(`${relative(store, f)}:${i + 1}: ${line.trim().slice(0, 200)}`)
+        const rel = relative(store, f)
+        if (!META.has(basename(rel)) && !hitPages.includes(rel)) hitPages.push(rel)
+      }
     }
   }
   console.log(hits.length ? hits.join('\n') : `no matches for "${query}"`)
+  if (touch && hitPages.length > 0) {
+    const stamped = touchPages(store, hitPages)
+    console.log(`— last_access ${today()} stamped on ${stamped.length} page(s)`)
+  }
+}
+
+/**
+ * Stamp `last_access` on pages. With no arguments, touch every page — the
+ * "I just read through the store" case; with arguments, only the named ones.
+ */
+function cmdTouch(store, args) {
+  const all = pages(store)
+  const requested = args.filter((a) => !a.startsWith('-'))
+  const targets = requested.length > 0 ? requested : all
+  const unknown = requested.filter((p) => !all.includes(p))
+  const stamped = touchPages(store, targets)
+  console.log(`stamped last_access ${today()} on ${stamped.length}/${targets.length} page(s)`)
+  if (unknown.length > 0) console.log(`skipped (not a page): ${unknown.join(', ')}`)
 }
 
 function cmdLint(store) {
@@ -109,7 +134,9 @@ function cmdLint(store) {
     }
   }
   const log = readFileSync(join(store, 'log.md'), 'utf8')
-  const badLines = log.split('\n').filter((l) => l.startsWith('## ') && !/^## \[\d{4}-\d{2}-\d{2}\] /.test(l))
+  // Quoted example lines (`> ## [...]`) are documentation, not entries.
+  const badLines = log.split('\n')
+    .filter((l) => l.startsWith('## ') && !/^## \[\d{4}-\d{2}-\d{2}\] /.test(l))
   for (const l of badLines) problems.push(`log.md malformed entry: ${l}`)
   console.log(problems.length ? problems.join('\n') : `ok — ${ps.length} pages, no problems found`)
   process.exit(problems.length ? 1 : 0)
@@ -132,6 +159,10 @@ function cmdStatus(store) {
   console.log(`by type: ${JSON.stringify(byType)}`)
   console.log(`last modified: ${last ? new Date(last).toISOString() : 'n/a'}`)
   console.log(`last log write: ${logMtime ? `${new Date(logMtime).toISOString()} (${Math.round((Date.now() - logMtime) / 60000)} min ago)` : 'n/a'}`)
+  const access = accessSummary(store)
+  const oldest = access.oldest ? `${access.oldest.lastAccess} (${access.oldest.path})` : 'n/a'
+  console.log(`stale pages (>90d or unstamped): ${access.stale.length}/${access.total}${access.missing > 0 ? ` (${access.missing} missing last_access)` : ''}`)
+  console.log(`oldest last_access: ${oldest}`)
 }
 
 function manifestFor(storePath) {
@@ -231,7 +262,8 @@ if (args[0] === '--self-test') {
 } else {
   const help = `dsh-memory — long-term memory CLI
   init [dir]               create the store scaffold
-  search <query>           full-text search
+  search <query> [--touch] full-text search (--touch stamps last_access on hits)
+  touch [pages...]         stamp last_access (all pages when none given)
   lint                     integrity check
   status                   health summary
   pack [out.tar.gz]        export portable archive + manifest
@@ -239,7 +271,8 @@ if (args[0] === '--self-test') {
 Store: $MEMORY_DIR or ./.memory or ~/.memory (current: ${store})`
   switch (args[0]) {
     case 'init': cmdInit(store, args.slice(1)); break
-    case 'search': cmdSearch(store, args[1]); break
+    case 'search': cmdSearch(store, args[1], args.includes('--touch')); break
+    case 'touch': cmdTouch(store, args.slice(1)); break
     case 'lint': cmdLint(store); break
     case 'status': cmdStatus(store); break
     case 'pack': cmdPack(store, args[1]); break

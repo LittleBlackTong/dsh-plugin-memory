@@ -13,7 +13,8 @@
 
 ## 特性
 
-- **开机强制注入**：插件通过 `ctx.systemPrompt.context()` 把记忆 boot 块（`SOUL.md` 人格 + `MEMORY.md` 协议 + `index.md` 目录 + 最近动态）注入会话上下文。宿主按投影去重：记忆不变就不重复注入，变化时新快照自动取代旧的——这是"新会话必先加载记忆"的**硬保障**，不需要模型碰运气调技能。默认还带**两道礼貌闸门**：`deferUntilUserSpeaks`（用户开口后才注入）与 `activeSessionOnly`（只注入当前激活会话），见「配置」。
+- **开机强制注入（带路由表保护）**：插件通过 `ctx.systemPrompt.context()` 把记忆 boot 块（`SOUL.md` 人格 + `MEMORY.md` 协议 + `index.md` 目录 + 最近动态）注入会话上下文。宿主按投影去重：记忆不变就不重复注入，变化时新快照自动取代旧的——这是"新会话必先加载记忆"的**硬保障**，不需要模型碰运气调技能。总预算是 `bootMaxChars`，**按文件分配**：每个文件先拿一份均分（受实际大小封顶），剩余额度优先给 `index.md`、再给尚有内容未注入的文件——所以记忆库长大时，目录的尾部不会先被截掉（详见「boot 预算分配」）。默认还带**两道礼貌闸门**：`deferUntilUserSpeaks`（用户开口后才注入）与 `activeSessionOnly`（只注入当前激活会话），见「配置」。
+- **last_access 自动戳记**：`MEMORY.md` 的 salience 衰减规则依赖 `last_access`，而它以前纯粹靠自觉——模板里有字段、规则里提到它，但没有任何代码去写它，于是每个页面都原地变老、衰减表形同虚设。现在会话收到第一条真实用户消息时，插件会把 boot 块**实际注入过的页面**（`SOUL.md` / `MEMORY.md` / `index.md` + 目录里被引用到的页）戳成当天，每会话一次、按天幂等，只改 `last_access` 一行；`dsh-memory touch <pages...>` 可手动补记，`trackPageAccess: false` 可关闭。
 - **SOUL.md 铸魂**：安装后首要任务是和用户对话定义灵魂（名字、性格、价值观、语气、边界）、确认身份与关系（`BOOTSTRAP.md` 清单驱动，complete 前优先于常规任务）。
 - **铸魂自动引导**：记忆库还没有灵魂（`BOOTSTRAP.md` 非 complete，或 `SOUL.md` 仍是占位模板）时，boot 块会自动前置一段第一人称引导词——「我的首要任务是确认我是谁，还有你是谁：我叫什么名字、怎么称呼你、你我是什么关系、我该是什么样的性格」——像 OpenClaw 初始化那样，**由 agent 在对话里主动发起铸魂**，逐项问、逐项写回，而不是等用户来喂。铸魂完成后引导词自动消失，零开销。
 - **复利记忆**：遵循 Karpathy 的 *LLM Wiki* 约定——记忆是"一次编译、持续保鲜"的持久产物，不是每次查询重新 RAG。remember / recall / consolidate / forget 四操作 + salience 三级衰减。
@@ -32,14 +33,15 @@
 ```
 dsh-plugin-memory（本插件）
 ├── lib/index.js        # Cordis 入口：boot 注入 + 运行时技能注册 + settings 热改
-├── lib/boot.js         # boot 块渲染（SOUL/MEMORY/index + 最近 log，限额截断）
+├── lib/boot.js         # boot 块渲染（SOUL/MEMORY/index + 最近 log，按文件分配预算）
+├── lib/pages.js        # 页面访问记账：extractReferencedPages / touchPages（last_access）
 ├── lib/activity-tracker.js # 两道礼貌闸门：用户是否开口 + 当前激活会话
 ├── lib/digest-guard.js # 防懒 digest 唤醒（空闲 + 记忆库久未写 → followup 提醒）
 ├── lib/recall-nudge.js # 主动追忆（空闲 → 第一人称提起一件真实往事，纯对话不写库）
 ├── lib/scaffold.js     # 记忆库脚手架（模板只建不覆盖）
 ├── lib/client.js       # 客户端半：设置面板「记忆 Memory」区块
 ├── skills/memory.md    # 内嵌技能的操作协议正文
-└── scripts/memory.mjs  # CLI：init/search/lint/status/pack/unpack
+└── scripts/memory.mjs  # CLI：init/search/touch/lint/status/pack/unpack
 
 记忆库（用户数据，默认 ~/.memory）
 ├── SOUL.md       # 人格与灵魂（用户主导）
@@ -74,7 +76,9 @@ dsh plugin --profile <profile> add dsh-plugin-memory
 | `enabled` | `true` | 总开关：关闭后不注入 boot 块、不注册 `memory` 技能 |
 | `memoryDir` | `~/.memory` | 记忆库绝对路径（`~` 自动展开） |
 | `bootFiles` | `[SOUL.md, MEMORY.md, index.md]` | 开机注入的文件 |
-| `bootMaxChars` | `6000` | boot 块总字符预算（防止占用过多上下文） |
+| `bootMaxChars` | `12000` | boot 块总字符预算（防止占用过多上下文）；按文件分配见下文 |
+| `bootFileBudgets` | — | 逐文件字符上限，例如 `{ index.md: 3500 }`；未列出的文件分剩余额度（composition 层，改完需重启） |
+| `trackPageAccess` | `true` | 会话首条用户消息时，把 boot 块实际注入的页面戳 `last_access`（关闭后衰减表需手动维护） |
 | `autoInject` | `true` | 会话开始时注入 boot 块 |
 | `deferUntilUserSpeaks` | `true` | 用户发出第一条真实消息后才注入（boot 块 / 追忆 / digest 提醒都遵守）；面板可热改 |
 | `activeSessionOnly` | `true` | 只对「当前激活会话」（最近收到用户消息的会话）注入，后台会话不打扰；面板可热改 |
@@ -95,7 +99,17 @@ dsh plugin --profile <profile> add dsh-plugin-memory
 
 ### 设置面板（热改）
 
-`enabled` / `memoryDir` / `autoInject` / `deferUntilUserSpeaks` / `activeSessionOnly` / `registerSkill` / `recallEnabled` / `recallIntervalMinMinutes` / `recallIntervalMaxMinutes` / `recallMaxPerSession` 十项在 DSH 设置页的「记忆 Memory」区块中可改，**即时生效**：boot 注入、两道礼貌闸门、技能注册、主动追忆（含随机间隔与次数）随修改立即生效；记忆目录切换时自动为新目录初始化脚手架（`scaffold: true` 时）。其余键（`bootFiles` / `bootMaxChars` / `scaffold` / `configFile` / `digestNudge*` / `autoCommit*`）只在 composition 配置层生效，改完需重启。
+`enabled` / `memoryDir` / `autoInject` / `deferUntilUserSpeaks` / `activeSessionOnly` / `registerSkill` / `recallEnabled` / `recallIntervalMinMinutes` / `recallIntervalMaxMinutes` / `recallMaxPerSession` 十项在 DSH 设置页的「记忆 Memory」区块中可改，**即时生效**：boot 注入、两道礼貌闸门、技能注册、主动追忆（含随机间隔与次数）随修改立即生效；记忆目录切换时自动为新目录初始化脚手架（`scaffold: true` 时）。其余键（`bootFiles` / `bootMaxChars` / `bootFileBudgets` / `trackPageAccess` / `scaffold` / `configFile` / `digestNudge*` / `autoCommit*`）只在 composition 配置层生效，改完需重启。
+
+### boot 预算分配（为什么 index 不会先被截掉）
+
+`bootMaxChars` 是总预算，按文件分配而不是简单平摊：
+
+1. 有 `bootFileBudgets` 条目的文件先拿自己的额度；
+2. 其余文件各拿一份均分额度，**以文件实际大小封顶**——短文件把用不完的额度退回池子；
+3. 池子再补给「还有内容没注入」的文件（每个最多补到均分额度的两倍）：**`index.md` 优先**，其余按体积降序——所以截断落在哪个文件上由体积决定，而不是由 `bootFiles` 的书写顺序决定。
+
+当每个文件都小于均分额度时，结果与旧的平摊规则逐字节相同；只有记忆库长大后才会不同。这也意味着：**`index.md` 是路由表，别把它写成摘要表**——它会被完整注入，膨胀的代价是挤掉人格与其他记忆。
 
 > **「当前激活会话」怎么判？** DSH 宿主侧没有「浏览器当前聚焦的会话」信号（激活会话是前端概念）。插件用**最近一次收到真实用户消息的 live root agent**作为激活会话的代理：你在哪个会话里说话，哪个会话就激活；切到别处但不发消息时，宿主感知不到「切换」这个动作（这是代理的已知边界）。若日后需要精确到「展开/聚焦」级别，需补一小段客户端 focus 上报。
 
@@ -115,18 +129,19 @@ dsh plugin --profile <profile> add dsh-plugin-memory
 
 ## 四个操作
 
-- **remember（记）**：把值得持久化的内容蒸馏成页面，同步更新 `index.md`、追加 `log.md`。
-- **recall（忆）**：会话开始读 boot 块；查询时先查 `index.md` 再钻页；必要时 `dsh-memory search`。
-- **consolidate（整理）**：`dsh-memory lint` 查矛盾、孤儿页、该归档的冷页。
-- **forget（忘）**：显式遗忘立即执行；自动衰减按 salience + last_access（冷页优先归档）。
+- **remember（记）**：把值得持久化的内容蒸馏成页面，同步更新 `index.md`、追加 `log.md`。维护 index 时守路由表纪律：一行一页、一句话摘要（≤ 80 字）+ `salience`。
+- **recall（忆）**：会话开始读 boot 块；查询时先查 `index.md` 再钻页；必要时 `dsh-memory search <关键词>`。
+- **consolidate（整理）**：`dsh-memory lint` 查矛盾、孤儿页、该归档的冷页；`dsh-memory status` 看陈旧页分布。
+- **forget（忘）**：显式遗忘立即执行；自动衰减按 salience + last_access（冷页优先归档）。`last_access` 由插件自动维护，无需手改。
 
 ## CLI
 
 ```sh
 dsh-memory init [dir]                 # 创建记忆库脚手架
-dsh-memory search <query>             # 全文检索
+dsh-memory search <query> [--touch]   # 全文检索（--touch 给命中页戳 last_access）
+dsh-memory touch [pages...]           # 手动戳 last_access（不带参数 = 全部页面）
 dsh-memory lint                       # 完整性体检
-dsh-memory status                     # 健康概览
+dsh-memory status                     # 健康概览（含陈旧页统计）
 dsh-memory pack [out.tar.gz]          # 打包导出（含 manifest）
 dsh-memory unpack <archive> [--force] # 从归档恢复
 ```

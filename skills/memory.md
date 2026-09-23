@@ -15,10 +15,10 @@
 
 ## 四个操作
 
-- **remember（记）**：会话中或收尾时，把值得持久化的内容蒸馏成/更新为页面，并同步更新 `index.md`、追加 `log.md`。一条事实可能 touch 多个页（例：一次决策同时更新 `decisions/`、`user/`、`projects/`）。
-- **recall（忆）**：先查 `index.md`，再钻具体页；必要时用 `dsh-memory search`。
-- **consolidate（整理）**：定期 `dsh-memory lint`——查矛盾、过时声明、孤儿页、缺交叉引用、该归档的冷页；合并重复页。
-- **forget（忘）**：显式遗忘（用户要求删除/修正）+ 自动衰减（按 salience 与 last_access，冷页归档或删除，见 `MEMORY.md`）。
+- **remember（记）**：会话中或收尾时，把值得持久化的内容蒸馏成/更新为页面，并同步更新 `index.md`、追加 `log.md`。一条事实可能 touch 多个页（例：一次决策同时更新 `decisions/`、`user/`、`projects/`）。维护 `index.md` 时守**路由表纪律**：一行一页、链接 + 一句话摘要（≤ 80 字）+ `salience`，不写状态流水——index 会被完整注入会话，它膨胀的代价是挤掉别的记忆；一行写不下就说明该拆页或该把细节移进正文。
+- **recall（忆）**：先查 `index.md`，再钻具体页；必要时用 `dsh-memory search <关键词>`；读完一批页可用 `dsh-memory touch <pages...>` 补记访问。
+- **consolidate（整理）**：定期 `dsh-memory lint`——查矛盾、过时声明、孤儿页、缺交叉引用、该归档的冷页；合并重复页；`dsh-memory status` 看陈旧页（>90 天未访问）分布。
+- **forget（忘）**：显式遗忘（用户要求删除/修正）+ 自动衰减（按 salience 与 last_access，冷页归档或删除，见 `MEMORY.md`）。`last_access` 由插件自动维护（boot 把实际注入的页面戳为当天），你不需要逐日手改，但写页时要保留该字段。
 
 ## 何时写、写什么
 

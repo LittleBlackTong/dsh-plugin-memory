@@ -8,7 +8,6 @@ import type { Context } from '@deepseek-ai/cordis'
 
 /** Plugin entry name. */
 export const name: 'memory'
-
 /** Services required by the plugin. */
 export const inject: ['systemPrompt', 'skills', 'agents']
 
@@ -20,8 +19,16 @@ export interface MemoryConfig {
   memoryDir?: string
   /** Files injected at session start. Default `['SOUL.md', 'MEMORY.md', 'index.md']`. */
   bootFiles?: string[]
-  /** Total character budget of the boot block. Default `6000`. */
+  /** Total character budget of the boot block. Default `12000`. */
   bootMaxChars?: number
+  /**
+   * Explicit per-file character caps for the boot block (composition-time
+   * only). Files without a cap share what is left, with `index.md` taking its
+   * share first so the routing table is never starved.
+   */
+  bootFileBudgets?: Record<string, number>
+  /** Stamp `last_access` on the pages a session actually loaded. Default `true`. */
+  trackPageAccess?: boolean
   /** Inject the boot block at session start. Default `true`. */
   autoInject?: boolean
   /** Don't inject anything until the session's first real user message. Default `true`. */
@@ -114,8 +121,54 @@ export default plugin
 /** Render the boot memory block injected at session start. */
 export function renderBootBlock(
   memoryDir: string,
-  options?: { bootFiles?: string[]; bootMaxChars?: number },
+  options?: {
+    bootFiles?: string[]
+    bootMaxChars?: number
+    bootFileBudgets?: Record<string, number>
+  },
 ): string
+
+/** Files injected at session start when the config does not override them. */
+export const DEFAULT_BOOT_FILES: string[]
+
+/**
+ * Split the boot budget across the injected files: explicit per-file caps
+ * first, then `index.md`'s share, then an even split, each clamped to the
+ * file's real size.
+ */
+export function allocateBootBudget(
+  memoryDir: string,
+  options?: {
+    files?: string[]
+    total?: number
+    perFile?: Record<string, number>
+  },
+): Map<string, number>
+
+/** Walk a store and return every page path relative to its root. */
+export function listPagePaths(memoryDir: string, dirs?: string[]): string[]
+
+/** Extract the real, store-relative pages a rendered boot block refers to. */
+export function extractReferencedPages(text: string, memoryDir: string, dirs?: string[]): string[]
+
+/** Stamp `last_access` (`YYYY-MM-DD`, today by default) on the given pages. */
+export function touchPages(
+  memoryDir: string,
+  paths: string[],
+  options?: { date?: string; dirs?: string[] },
+): string[]
+
+/** Rewrite one page's `last_access` when it differs. Returns true when written. */
+export function touchPageFile(filePath: string, date?: string): boolean
+
+/** Today as `YYYY-MM-DD` (local time). */
+export function today(): string
+
+/** Store-wide `last_access` summary used by `dsh-memory status`. */
+export function accessSummary(
+  memoryDir: string,
+  options?: { staleDays?: number; now?: Date },
+): { total: number; missing: number; stale: string[]; oldest?: { path: string; lastAccess: string } }
 
 /** Create the memory-store layout if missing. Returns created paths. */
 export function ensureMemoryScaffold(memoryDir: string): string[]
