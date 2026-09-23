@@ -24,6 +24,7 @@
 - **主动追忆（拟人化）**：对话空下来时，插件会以第一人称主动提起一件**真实记得**的、关于用户或你们之间的事（偏好、往事、未了的决定、最近的进展），把记忆从"只写回"变成"也用起来"——像老友自然想起那样，而非报状态。间隔在最短/最长之间**随机取值**（不固定节奏），配合每会话限次，不骚扰、不编造、不硬聊；纯对话行为，不写记忆库。**同样独立于 heartbeat**。
 - **git 自动提交**：记忆库变更静默 `autoCommitQuietSeconds` 后自动 `git add -A && git commit`（无 `.git` 则跳过）——历史可回滚不再依赖 agent 记得 commit。
 - **设置面板**：在 DSH 设置页提供「记忆 Memory」区块——总开关、记忆目录、开机注入、技能注册、主动追忆（开关 + 随机间隔范围 + 每会话次数）均可热改，立即生效，无需重启。
+- **记忆健康看板**：同一区块下方是一张**只读**看板——记忆页数 / index 路由数 / 记忆字数、访问新鲜度条形图（今天 / ≤7 / ≤30 / ≤90 / >90 天）、四项体检结论（index 链接、孤儿页、frontmatter、新鲜度）与健康分、陈旧页候选、最近 5 条动态。数据来自新增的 `GET /api/memory/insights`（每次请求实时统计，不缓存），体检口径与 `dsh-memory lint` 同源，所以看板与 CLI 不会互相打脸。
 - **零构建**：纯 ESM JavaScript，无编译步骤，`pnpm add` 即用。
 
 ## 架构
@@ -35,11 +36,12 @@ dsh-plugin-memory（本插件）
 ├── lib/index.js        # Cordis 入口：boot 注入 + 运行时技能注册 + settings 热改
 ├── lib/boot.js         # boot 块渲染（SOUL/MEMORY/index + 最近 log，按文件分配预算）
 ├── lib/pages.js        # 页面访问记账：extractReferencedPages / touchPages（last_access）
+├── lib/insights.js     # 记忆健康看板的数据层（页数/分布/新鲜度/体检，只读）
 ├── lib/activity-tracker.js # 两道礼貌闸门：用户是否开口 + 当前激活会话
 ├── lib/digest-guard.js # 防懒 digest 唤醒（空闲 + 记忆库久未写 → followup 提醒）
 ├── lib/recall-nudge.js # 主动追忆（空闲 → 第一人称提起一件真实往事，纯对话不写库）
 ├── lib/scaffold.js     # 记忆库脚手架（模板只建不覆盖）
-├── lib/client.js       # 客户端半：设置面板「记忆 Memory」区块
+├── lib/client.js       # 客户端半：设置面板「记忆 Memory」区块 + 记忆健康看板
 ├── skills/memory.md    # 内嵌技能的操作协议正文
 └── scripts/memory.mjs  # CLI：init/search/touch/lint/status/pack/unpack
 
@@ -112,6 +114,21 @@ dsh plugin --profile <profile> add dsh-plugin-memory
 当每个文件都小于均分额度时，结果与旧的平摊规则逐字节相同；只有记忆库长大后才会不同。这也意味着：**`index.md` 是路由表，别把它写成摘要表**——它会被完整注入，膨胀的代价是挤掉人格与其他记忆。
 
 > **「当前激活会话」怎么判？** DSH 宿主侧没有「浏览器当前聚焦的会话」信号（激活会话是前端概念）。插件用**最近一次收到真实用户消息的 live root agent**作为激活会话的代理：你在哪个会话里说话，哪个会话就激活；切到别处但不发消息时，宿主感知不到「切换」这个动作（这是代理的已知边界）。若日后需要精确到「展开/聚焦」级别，需补一小段客户端 focus 上报。
+
+### 记忆健康看板
+
+设置页「记忆 Memory」区块下方是一张**只读**看板，数据来自 `GET /api/memory/insights`：
+
+| 展示 | 含义 |
+|---|---|
+| 记忆页 / index 路由 / 记忆字数 | 记忆库规模（字数按字符计，中文不会按字节虚高 3 倍） |
+| 健康分（0–100） | 由孤儿页、缺 `salience`/`type`、陈旧页、失效 index 链接加权得出 |
+| 访问新鲜度条形图 | 今天 / ≤7 / ≤30 / ≤90 / >90 天 / 从未戳记（驱动自 `last_access` 自动戳记） |
+| 四项体检 | index 链接完整、无孤儿页、frontmatter 完整、访问新鲜度——口径与 `dsh-memory lint` 同源 |
+| 陈旧页候选 | 超过 90 天或从未戳记的页面，按陈旧度排序（前 8） |
+| 最近动态 | `log.md` 最新 5 条标题 |
+
+看板是**实时**的：每次打开设置页（或改完任一配置项后）重新拉取，不落盘、不缓存、不写记忆库。头less 部署没有 `webServer` 时该路由与看板都不存在，其余功能不受影响。
 
 覆盖 composition 键（例如把 boot 块预算调大），在 profile 的 `cordis.patch.yml` 里写**不带 `insert` 的 id 覆盖条目**：
 

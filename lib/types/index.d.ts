@@ -71,6 +71,9 @@ export const Config: import('@deepseek-ai/schemastery').default<MemoryConfig>
 /** HTTP route serving the user-facing config to the Settings panel. */
 export const CONFIG_ROUTE_PATH: '/api/memory/config'
 
+/** Read-only HTTP route serving the memory-health dashboard payload. */
+export const INSIGHTS_ROUTE_PATH: '/api/memory/insights'
+
 /** User-editable settings (composition config is the base layer). */
 export interface MemorySettings {
   enabled?: boolean
@@ -187,3 +190,42 @@ export class ActivityTracker {
   shouldInject(id: string, config?: { deferUntilUserSpeaks?: boolean; activeSessionOnly?: boolean }): boolean
   dispose(): void
 }
+
+/** Memory-health dashboard payload (read-only, computed per request). */
+export interface MemoryInsights {
+  generatedAt: string
+  store: string
+  overview: {
+    pages: number
+    chars: number
+    bytes: number
+    indexEntries: number
+    indexBytes: number
+    logBytes: number
+    lastWrite: string | null
+    neverAccessed: number
+  }
+  byType: Array<{ type: string, label: string, count: number }>
+  bySalience: Array<{ level: 1 | 2 | 3, count: number }>
+  freshness: {
+    buckets: Array<{ key: string, label: string, count: number }>
+    never: number
+  }
+  stalePages: Array<{
+    path: string
+    title: string
+    salience?: number
+    daysSinceAccess: number | null
+  }>
+  recent: string[]
+  health: {
+    score: number
+    checks: Array<{ id: string, ok: boolean, label: string, detail: string }>
+  }
+}
+
+/** Build the dashboard payload from the store on disk (never writes). */
+export function collectInsights(memoryDir: string): MemoryInsights
+
+/** Newest-first `log.md` headlines for the dashboard. */
+export function readRecentLog(memoryDir: string, count?: number): string[]

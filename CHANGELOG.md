@@ -4,12 +4,13 @@
 
 ## [0.7.0] - 2026-09-23
 
-### Added（boot 预算按文件分配 + last_access 自动戳记）
+### Added（boot 预算按文件分配 + last_access 自动戳记 + 记忆健康看板）
 
 - **boot 预算不再平摊**（`lib/boot.js`）：旧规则是 `总预算 / 文件数` 平均分给每个文件，于是 `index.md` 一长大，**它的尾部就先被截掉**——agent 连「有这一页」都看不到，更谈不上 drill 进去。现在按文件分配：显式配额（新增 `bootFileBudgets`）→ 其余文件均分且以实际大小封顶 → 余额补回「仍有内容未注入」的文件（`index.md` 优先，其余按体积降序，单个文件最多补到均分额度的两倍）。每个文件都小于均分额度时，结果与旧规则逐字节一致。`bootMaxChars` 默认值同时从 `6000` 提到 `12000`——6000 全量塞不下「人格 + schema + 目录」，默认值偏小正是它被截断的原因之一。
 - **`last_access` 自动戳记**（新增 `lib/pages.js`）：`MEMORY.md` 的衰减规则依赖 `last_access`，但它一直是个没人写的字段——模板里有、规则里提到、代码里没有，所以每个页面都原地变老、衰减表形同虚设。现在会话收到第一条真实用户消息时，插件把 boot 块**实际注入到的页面**（boot 文件 + `index.md` 引用到的分类页）戳成当天：每会话一次、按天幂等、只改 `last_access` 一行、无 frontmatter 的页面不碰、`trackPageAccess: false` 可关。
 - **CLI**：新增 `dsh-memory touch [pages...]`（不带参数 = 全部页面），`search` 新增 `--touch`；`status` 增加陈旧页统计（>90 天未访问 / 缺 `last_access`）与最老戳记。
 - **`index.md` 定位为路由表**：脚手架模板、嵌入式 `memory` 技能与 `MEMORY.md` 模板同步写入「一行一页、摘要 ≤ 80 字、不写状态流水」的纪律——它会被完整注入，膨胀的代价是挤掉人格与其他记忆。
+- **记忆健康看板**（新增 `lib/insights.js` + `lib/client.js` 看板卡片 + `GET /api/memory/insights`）：设置页「记忆 Memory」区块下方新增**只读**看板——记忆页 / index 路由 / 记忆字数、健康分（孤儿页、缺 frontmatter、陈旧页、失效链接加权）、访问新鲜度条形图（今天 / ≤7 / ≤30 / ≤90 / >90 天 / 从未戳记）、四项体检结论、陈旧页候选、最近 5 条动态。数据每次请求实时统计，**不缓存、不落盘、不写记忆库**；体检口径与 `dsh-memory lint` 同源，二者不会互相打脸；字数按**字符**而非字节计（中文按字节会虚高约 3 倍）。
 
 ### Fixed
 
@@ -17,7 +18,7 @@
 
 ### Tests
 
-- 78/78 全过（新增 `boot-budget` / `pages` / `page-access` / `cli` 四套：预算分配与截断行为、引用提取与戳记语义、插件端「首条用户消息 → 戳记」链路与 `trackPageAccess: false`、CLI 新建库自检与帮助文本）。
+- 87/87 全过（新增 `boot-budget` / `pages` / `page-access` / `cli` / `insights` / `insights-route` 六套：预算分配与截断行为、引用提取与戳记语义、插件端「首条用户消息 → 戳记」链路与 `trackPageAccess: false`、CLI 新建库自检与帮助文本、看板数据层（分布/新鲜度/体检/只读性）、看板路由（GET 200 / POST 405 / 跟随 memoryDir 热改））。
 
 ## [0.6.0] - 2026-09-09
 
