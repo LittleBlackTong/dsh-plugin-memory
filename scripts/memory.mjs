@@ -6,6 +6,8 @@
  *   dsh-memory init [dir]                  # create the store scaffold (default $MEMORY_DIR or ~/.memory)
  *   dsh-memory search <query> [--touch]    # full-text search; --touch stamps last_access on the hits
  *   dsh-memory touch [pages...]            # stamp last_access (all pages when none given)
+ *   dsh-memory index [--check|--write|--sync-frontmatter]
+ *                                          # index routing table: drift / rewrite / import summaries
  *   dsh-memory lint                        # integrity check (index vs files, orphans, log format)
  *   dsh-memory status                      # health summary (page counts, sizes, staleness, last modified)
  *   dsh-memory pack [out.tar.gz]           # export a portable archive + manifest
@@ -24,6 +26,7 @@ import { tmpdir, homedir } from 'node:os'
 import { createHash } from 'node:crypto'
 import { ensureMemoryScaffold } from '../lib/scaffold.js'
 import { touchPages, accessSummary, today } from '../lib/pages.js'
+import { planIndex, applyIndex, indexIssues, syncDeclaredSummaries, INDEX_LINE_MAX } from '../lib/index-page.js'
 
 const META = new Set(['SOUL.md', 'MEMORY.md', 'BOOTSTRAP.md', 'index.md', 'log.md'])
 
@@ -112,6 +115,76 @@ function cmdTouch(store, args) {
   if (unknown.length > 0) console.log(`skipped (not a page): ${unknown.join(', ')}`)
 }
 
+/**
+ * Index compiler: report drift (default / `--check`) or rewrite the stale lines
+ * (`--write`). Only existing entry lines are rewritten — sections, order and
+ * unmentioned pages are left for the agent to decide.
+ */
+function cmdIndex(store, args) {
+  const plan = planIndex(store)
+  const write = args.includes('--write')
+  const check = args.includes('--check')
+  const sync = args.includes('--sync-frontmatter') || args.includes('--sync')
+  const overlong = plan.lines.filter((l) => l.current.length > INDEX_LINE_MAX).length
+  const stale = plan.lines.filter((l) => l.changed)
+  const noSummary = plan.lines.filter((l) => l.summary.length === 0)
+
+  if (sync) {
+    // One-shot migration: whatever summary already lives in the index moves into
+    // the page's frontmatter, after which the index is pure projection.
+    const result = syncDeclaredSummaries(store, plan)
+    console.log(`index: synced ${result.synced.length} summary declaration(s) into frontmatter`
+      + (result.skipped.length > 0 ? `, skipped ${result.skipped.length}` : ''))
+    for (const path of result.skipped.slice(0, 5)) console.log(`  · skipped (no index summary to import): ${path}`)
+    return
+  }
+
+  if (write) {
+    const result = applyIndex(store, plan)
+    console.log(`index: rewrote ${result.written}/${plan.lines.length} line(s) `
+      + `(${result.bytesBefore} → ${result.bytesAfter} bytes)`)
+    if (plan.missing.length > 0) {
+      console.log(`index: ${plan.missing.length} page(s) not listed — add them by hand (section + order are editorial):`)
+      for (const path of plan.missing) console.log(`  + ${path}`)
+    }
+    if (plan.removed.length > 0) {
+      console.log(`index: ${plan.removed.length} stale link(s) — decide whether to delete the line: ${plan.removed.join(', ')}`)
+    }
+    if (noSummary.length > 0) {
+      console.log(`index: ${noSummary.length} page(s) declare no summary — the line shows the title only; `
+        + 'add `summary:` to the page frontmatter and re-run')
+    }
+    return
+  }
+
+  if (check) {
+    console.log(`index: ${stale.length} stale / ${overlong} over-cap / ${noSummary.length} undeclared-summary `
+      + `of ${plan.lines.length} line(s)`)
+    for (const line of plan.lines) console.log(`  ${line.changed ? '~' : '·'} ${line.target}`)
+    for (const path of plan.missing) console.log(`  + missing from index: ${path}`)
+    for (const path of plan.removed) console.log(`  - stale link: ${path}`)
+    if (stale.length > 0 || plan.missing.length > 0 || plan.removed.length > 0) process.exit(1)
+    return
+  }
+
+  if (stale.length > 0) {
+    console.log(`index: ${stale.length} of ${plan.lines.length} line(s) need a rewrite`
+      + (overlong > 0 ? `, ${overlong} over the ${INDEX_LINE_MAX}-char cap` : ''))
+    for (const line of stale.slice(0, 10)) console.log(`  ~ ${line.target}`)
+    if (stale.length > 10) console.log(`  … ${stale.length - 10} more`)
+    console.log('run `dsh-memory index --write` to rewrite them (sections and order are preserved)')
+  } else if (plan.lines.length > 0) {
+    console.log(`index: ${plan.lines.length} line(s) in sync with their pages`)
+  }
+  if (noSummary.length > 0) {
+    console.log(`index: ${noSummary.length} page(s) declare no summary (line shows title only): `
+      + noSummary.slice(0, 5).map((l) => l.target).join(', ') + (noSummary.length > 5 ? ' …' : ''))
+    console.log('  hint: `dsh-memory index --sync-frontmatter` imports the summary already written in index.md')
+  }
+  for (const path of plan.missing) console.log(`  + missing from index (add by hand): ${path}`)
+  for (const path of plan.removed) console.log(`  - stale link (decide by hand): ${path}`)
+}
+
 function cmdLint(store) {
   const problems = []
   const index = readFileSync(join(store, 'index.md'), 'utf8')
@@ -132,6 +205,13 @@ function cmdLint(store) {
     if (fm.salience && !['1', '2', '3'].includes(fm.salience)) {
       problems.push(`${p}: salience must be 1|2|3, got "${fm.salience}"`)
     }
+  }
+  // Routing-table discipline: a line that has drifted from its page, or grown
+  // past the cap, is a lint failure — not a style preference. The index is
+  // injected whole, so an overgrown line costs every session context.
+  for (const issue of indexIssues(store, { includeNoSummary: false })) {
+    if (issue.kind === 'missing' || issue.kind === 'removed') continue // already reported above
+    problems.push(issue.detail)
   }
   const log = readFileSync(join(store, 'log.md'), 'utf8')
   // Quoted example lines (`> ## [...]`) are documentation, not entries.
@@ -264,6 +344,8 @@ if (args[0] === '--self-test') {
   init [dir]               create the store scaffold
   search <query> [--touch] full-text search (--touch stamps last_access on hits)
   touch [pages...]         stamp last_access (all pages when none given)
+  index [--check|--write|--sync-frontmatter]
+                           index routing table: report drift / rewrite / import summaries
   lint                     integrity check
   status                   health summary
   pack [out.tar.gz]        export portable archive + manifest
@@ -273,6 +355,7 @@ Store: $MEMORY_DIR or ./.memory or ~/.memory (current: ${store})`
     case 'init': cmdInit(store, args.slice(1)); break
     case 'search': cmdSearch(store, args[1], args.includes('--touch')); break
     case 'touch': cmdTouch(store, args.slice(1)); break
+    case 'index': cmdIndex(store, args.slice(1)); break
     case 'lint': cmdLint(store); break
     case 'status': cmdStatus(store); break
     case 'pack': cmdPack(store, args[1]); break
