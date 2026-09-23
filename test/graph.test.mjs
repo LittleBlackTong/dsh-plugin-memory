@@ -21,6 +21,25 @@ function makeStore(files = {}) {
   return dir
 }
 
+test('index.md links become their own edge kind, from the routing table', () => {
+  const dir = makeStore({
+    'index.md': '- [a](user/a.md) — 甲\n- [b](skills/b.md) — 乙\n',
+    'user/a.md': page({ title: '甲' }),
+    'skills/b.md': page({ title: '乙' }),
+  })
+  try {
+    const graph = buildMemoryGraph(dir)
+    const indexEdges = graph.edges.filter((e) => e.kind === 'index')
+    assert.equal(indexEdges.length, 2)
+    assert.equal(graph.stats.indexLinks, 2)
+    assert.equal(graph.stats.links, 0, 'index rows are not page-to-page links')
+    const indexNode = graph.nodes.find((n) => n.id === 'index.md')
+    assert.equal(indexNode.degree, 2, 'the routing table must not float alone')
+  } finally {
+    rmSync(dir, { recursive: true, force: true })
+  }
+})
+
 test('nodes carry frontmatter metadata and root meta files are marked as hubs', () => {
   const dir = makeStore({
     'index.md': '- [a](user/a.md)\n',
