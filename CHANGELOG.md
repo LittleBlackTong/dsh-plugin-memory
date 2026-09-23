@@ -16,8 +16,13 @@
 - **digest 提醒附带索引漂移**：会话空闲触发 digest 提醒时，插件顺带跑一次索引检查，把「N 行与页面不一致 / N 个新页未收录 / N 个链接失效」写进提醒正文，`dsh-memory index --write` 即可修复。只在真要提醒时才扫描，不增加空闲开销。
 
 - **记忆图谱**（新增 `lib/graph.js` + `lib/graph-layout.js` + `GET /api/memory/graph` + 面板 SVG 卡片）：从 markdown 渲染的图是**星形**（index 连所有页，页间几乎不互链——实测 29 页只有 1 条页间链接），它说明"索引列了所有页"，不说明"哪些记忆属于一起"。本功能补上页面已经编码、却没人画出来的关系：显式页间链接（解析相对路径，如 `../skills/x.md`）、共享 tag（忽略 `project`/`skill` 这类通用容器 tag；同一 tag 的稠密组走锚点链而不是全连接）。布局在服务端算一次（`layoutGraph`，确定性、无随机、无依赖），客户端只画；`?types=1` 可追加同类型弱边。
+- **图谱交互**（新增 `lib/graph-drag.js`）：可拖动节点——按住即 1:1 跟手（拖动期间暂停 CSS 过渡），直接邻居按距离轻微跟随，松手后带缓动滑回原布局；首次渲染从中心绽开；尊重 `prefers-reduced-motion`。拖动数学是**纯函数模块**（`applyDrag` / `releasePositions` / `clampToBox` / `neighbourLean`），因为浏览器半无法 import 本地模块，客户端内联一份 12 行等价实现，并由测试断言两者行为一致。**客户端半首次有了测试**：用 Node `vm` 加载 `client.js`（只注入 `react` stub），真跑 `GraphView` 的元素树，断言"每节点一组、每边一线、边端点跟随实时位置、空图渲染 null"。
+
 ### Fixed
 
+- **图谱悬停高亮从未生效**：悬停样式是 `g:not(.lit)`，但没有任何代码给 `<g>` 加过 `lit` 类 —— 悬停会变暗**所有**节点，包括被悬停那个。现在按邻居关系给组加类。
+- **图谱拖动的指针捕获可能抛错**：`setPointerCapture` 在合成事件/边界情况下会抛，一旦抛出整个拖动就死掉。现在包了 try/catch —— 捕获只是优化，丢掉它拖动依然成立（坐标本身已被画布夹取）。
+- **`clampToBox` 把无穷大当成 NaN**：`±Infinity` 是合法方向（应夹到边界），只有 `NaN` 才该回退。修正并补测试。
 - **`lint` 在刚 `init` 的记忆库上误报**：脚手架 `log.md` 模板里的占位行 `## [YYYY-MM-DD] install | ...` 会被自己的 lint 规则判为「malformed entry」。占位行改为引用块（`> ## [...]`），lint 只认真正的 `## ` 行。
 
 ### Tests
