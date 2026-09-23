@@ -15,6 +15,7 @@
 - **index 声明式编译**（新增 `lib/index-page.js` + CLI `dsh-memory index [--check|--write|--sync-frontmatter]`）：索引纪律原来只在文档里，实测 85% 的行超标（中位 191 字符、最长 2000+）。现在索引行是**页面 `summary:` 的投影**——编译器绝不自己编话（曾实现"从首句推导摘要"，实测把铺垫当要点，已删除该路径）。重写只改行内容、保留分节与顺序、幂等；根元文件永不重写；无 `##` 的扁平索引也能解析。`lint` 增加超长行 / 未声明 summary 检查，与 `index --check` 分工不重复。
 - **digest 提醒附带索引漂移**：会话空闲触发 digest 提醒时，插件顺带跑一次索引检查，把「N 行与页面不一致 / N 个新页未收录 / N 个链接失效」写进提醒正文，`dsh-memory index --write` 即可修复。只在真要提醒时才扫描，不增加空闲开销。
 
+- **记忆图谱**（新增 `lib/graph.js` + `lib/graph-layout.js` + `GET /api/memory/graph` + 面板 SVG 卡片）：从 markdown 渲染的图是**星形**（index 连所有页，页间几乎不互链——实测 29 页只有 1 条页间链接），它说明"索引列了所有页"，不说明"哪些记忆属于一起"。本功能补上页面已经编码、却没人画出来的关系：显式页间链接（解析相对路径，如 `../skills/x.md`）、共享 tag（忽略 `project`/`skill` 这类通用容器 tag；同一 tag 的稠密组走锚点链而不是全连接）。布局在服务端算一次（`layoutGraph`，确定性、无随机、无依赖），客户端只画；`?types=1` 可追加同类型弱边。
 ### Fixed
 
 - **`lint` 在刚 `init` 的记忆库上误报**：脚手架 `log.md` 模板里的占位行 `## [YYYY-MM-DD] install | ...` 会被自己的 lint 规则判为「malformed entry」。占位行改为引用块（`> ## [...]`），lint 只认真正的 `## ` 行。

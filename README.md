@@ -25,6 +25,7 @@
 - **git 自动提交**：记忆库变更静默 `autoCommitQuietSeconds` 后自动 `git add -A && git commit`（无 `.git` 则跳过）——历史可回滚不再依赖 agent 记得 commit。
 - **设置面板**：在 DSH 设置页提供「记忆 Memory」区块——总开关、记忆目录、开机注入、技能注册、主动追忆（开关 + 随机间隔范围 + 每会话次数）均可热改，立即生效，无需重启。
 - **index 自动整理（声明式编译）**：索引行不再手写。页面在 frontmatter 里声明 `summary:`，`dsh-memory index --write` 把行重写为它的投影（标签 ≤32 / 摘要 ≤48 / 整行 ≤132 字符），**只改行内容，分节与顺序逐字节保留**，且幂等。`index --check` 给机器判定（有漂移退出码非 0），`index --sync-frontmatter` 把已写在 index 里的摘要回填进页面（老库一次性迁移）。digest 提醒会在索引漂移时附一句提示，agent 顺手就能修。
+- **记忆图谱**：设置页里一张只读关系图 —— 不只是 `index.md` 那种"索引连着所有页"的星形，而是把页面**已经编码但没人画出来**的关系画出来：页间显式 markdown 链接（含相对路径解析）、共享 frontmatter tag（通用容器 tag 如 `project`/`skill` 会被忽略，稠密 tag 走锚点链而非全连接）。坐标由服务端 `lib/graph-layout.js` 一次性算好，客户端只负责画 SVG，悬停节点高亮它的邻里。`GET /api/memory/graph`（只读、实时，`?types=1` 追加同类型弱边）。
 - **记忆健康看板**：同一区块下方是一张**只读**看板——记忆页数 / index 路由数 / 记忆字数、访问新鲜度条形图（今天 / ≤7 / ≤30 / ≤90 / >90 天）、四项体检结论（index 链接、孤儿页、frontmatter、新鲜度）与健康分、陈旧页候选、最近 5 条动态。数据来自新增的 `GET /api/memory/insights`（每次请求实时统计，不缓存），体检口径与 `dsh-memory lint` 同源，所以看板与 CLI 不会互相打脸。
 - **零构建**：纯 ESM JavaScript，无编译步骤，`pnpm add` 即用。
 
