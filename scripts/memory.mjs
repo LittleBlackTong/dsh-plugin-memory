@@ -6,6 +6,7 @@
  *   dsh-memory init [dir]                  # create the store scaffold (default $MEMORY_DIR or ~/.memory)
  *   dsh-memory search <query> [--touch]    # full-text search; --touch stamps last_access on the hits
  *   dsh-memory touch [pages...]            # stamp last_access (all pages when none given)
+ *   dsh-memory graph [--suggest]           # relationship report / citation suggestions
  *   dsh-memory index [--check|--write|--sync-frontmatter]
  *                                          # index routing table: drift / rewrite / import summaries
  *   dsh-memory lint                        # integrity check (index vs files, orphans, log format)
@@ -27,6 +28,7 @@ import { createHash } from 'node:crypto'
 import { ensureMemoryScaffold } from '../lib/scaffold.js'
 import { touchPages, accessSummary, today } from '../lib/pages.js'
 import { planIndex, applyIndex, indexIssues, syncDeclaredSummaries, INDEX_LINE_MAX } from '../lib/index-page.js'
+import { buildMemoryGraph, suggestLinks } from '../lib/graph.js'
 
 const META = new Set(['SOUL.md', 'MEMORY.md', 'BOOTSTRAP.md', 'index.md', 'log.md'])
 
@@ -222,6 +224,40 @@ function cmdLint(store) {
   process.exit(problems.length ? 1 : 0)
 }
 
+/**
+ * Relationship report: what the graph looks like, and (with `--suggest`) who
+ * each under-connected page should probably cite. Suggestion only — the write
+ * stays with the agent, per the project's "no automatic rewrites" rule.
+ */
+function cmdGraph(store, args) {
+  const graph = buildMemoryGraph(store, { includeSuggestions: args.includes('--suggest') })
+  const { stats } = graph
+  console.log(`graph: ${stats.pages} 页 · ${stats.links} 条页间互链 · ${stats.tagEdges} 条共享 tag · ${stats.indexLinks} 条索引路由`)
+  if (stats.isolated.length > 0) {
+    console.log(`孤立页（连索引之外没有任何关系）：${stats.isolated.length} 个`)
+    for (const path of stats.isolated) console.log(`  · ${path}`)
+  }
+  if (!args.includes('--suggest')) {
+    console.log('用 `dsh-memory graph --suggest` 查看"这页该连谁"的建议（只报告，不写入）')
+    return
+  }
+  const suggestions = graph.suggestions ?? []
+  if (suggestions.length === 0) {
+    console.log('没有需要补链的页面 —— 每页都已经有内容层面的关系了')
+    return
+  }
+  console.log('')
+  console.log('补链建议（只提示，请自己确认后写进页面）：')
+  for (const entry of suggestions) {
+    console.log(`  ${entry.page}`)
+    for (const candidate of entry.candidates) {
+      console.log(`     → ${candidate.target}   [${candidate.reason}]`)
+    }
+  }
+  console.log('')
+  console.log('写进页面示例：在正文里加 `见 [某页](../path.md)`，图谱与探索都会用到这条边。')
+}
+
 function cmdStatus(store) {
   const ps = pages(store)
   const bytes = ps.map((p) => statSync(join(store, p)).size).reduce((a, b) => a + b, 0)
@@ -344,6 +380,7 @@ if (args[0] === '--self-test') {
   init [dir]               create the store scaffold
   search <query> [--touch] full-text search (--touch stamps last_access on hits)
   touch [pages...]         stamp last_access (all pages when none given)
+  graph [--suggest]        relationship report / "who should this page cite" 
   index [--check|--write|--sync-frontmatter]
                            index routing table: report drift / rewrite / import summaries
   lint                     integrity check
@@ -355,6 +392,7 @@ Store: $MEMORY_DIR or ./.memory or ~/.memory (current: ${store})`
     case 'init': cmdInit(store, args.slice(1)); break
     case 'search': cmdSearch(store, args[1], args.includes('--touch')); break
     case 'touch': cmdTouch(store, args.slice(1)); break
+    case 'graph': cmdGraph(store, args.slice(1)); break
     case 'index': cmdIndex(store, args.slice(1)); break
     case 'lint': cmdLint(store); break
     case 'status': cmdStatus(store); break

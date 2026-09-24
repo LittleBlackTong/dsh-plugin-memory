@@ -213,6 +213,13 @@ test('only the active session nudges (active gate)', () => {
   guardA.dispose(); guardB.dispose()
 })
 
+test('the digest reminder asks for cross-links (nothing else produces them)', () => {
+  const text = buildDigestNudgeMessage(10).content[0].text
+  assert.match(text, /相关页链接|[Cc]ross-link/, 'the reminder must ask for page-to-page links')
+  // Still a checklist: the ask sits before the closing line.
+  assert.ok(text.indexOf('相关页链接') < text.indexOf('完成后继续手头的事'))
+})
+
 test('buildDigestNudgeMessage renders the index-drift line only when provided', () => {
   const plain = buildDigestNudgeMessage(10)
   assert.ok(!plain.content[0].text.includes('index 有漂移'))
