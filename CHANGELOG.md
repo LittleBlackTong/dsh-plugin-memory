@@ -7,6 +7,7 @@
 ### Added（互链机制 + 补链建议）
 
 - **互链升级为默认动作**（`skills/memory.md` / `lib/scaffold.js` / `lib/digest-guard.js`）：remember 流程、MEMORY 模板工作流、digest 收尾指令三处都要求「给这次碰过的页面各补 1–3 条相关页链接」。动机是实测数据：一个真实记忆库 29 页里只有 1 条真互链，而图谱、跨页综合、探索全都建立在这层关系上——`index.md` 只是目录。
+- **`dsh-memory query`**：结构化检索——先按 frontmatter 过滤（`--tag` / `--type` / `--salience` / `--hot` / `--stale`，可组合），再在结果集内匹配正文关键词。原来的 `search` 只能逐行 `includes`，而 agent 的真实需求通常是"所有带 #memory-plugin 的决策"，不是"含某个词的行"。数据层是新增的 `listPagesWithMeta()`（与看板共用"什么算一页"的口径）。
 - **`dsh-memory graph [--suggest]`**（新增 `suggestLinks()` + 路由 `?suggest=1`）：报告关系构成与孤立页；`--suggest` 对「只有索引入口」的页面给出「该引用谁」，按共享主题 tag（3 分）、标题词重合（2 分）、共享桶标签（1 分）、同类型（1 分）打分并输出理由。规则刻意保守：**同类型 + 桶标签本身不足以构成建议**（否则每个 skill 页都"应该"连到每个 skill 页）；完全无标签的页面降级为弱建议但会说明理由。只报告、不写入。
 
 ## [0.7.0] - 2026-09-23

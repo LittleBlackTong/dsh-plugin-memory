@@ -5,6 +5,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import {
   accessSummary,
+  listPagesWithMeta,
   extractReferencedPages,
   listPagePaths,
   readLastAccess,
@@ -171,5 +172,34 @@ test('pages.js stays dependency-free (node: builtins only)', () => {
   assert.ok(imports.length > 0)
   for (const specifier of imports) {
     assert.ok(specifier.startsWith('node:'), `unexpected dependency: ${specifier}`)
+  }
+})
+
+test('listPagesWithMeta exposes the fields the query command filters on', () => {
+  const dir = makeStore({
+    'user/a.md': [
+      '---', 'title: 档案', 'date: 2026-01-01', 'type: user', 'salience: 1',
+      'last_access: 2026-09-01', 'tags: [dsh, plugin]', 'sources: []', '---', '', '正文', '',
+    ].join('\n'),
+    'skills/b.md': [
+      '---', 'title: 技能', 'date: 2026-01-01', 'type: skill', 'tags: []', '---', '', '正文', '',
+    ].join('\n'),
+    'raw/source.md': page(today()), // raw/ holds sources, not pages
+  })
+  try {
+    const rows = listPagesWithMeta(dir)
+    assert.deepEqual(rows.map((r) => r.path).sort(), ['skills/b.md', 'user/a.md'])
+    const a = rows.find((r) => r.path === 'user/a.md')
+    assert.equal(a.title, '档案')
+    assert.equal(a.type, 'user')
+    assert.equal(a.salience, 1)
+    assert.deepEqual(a.tags, ['dsh', 'plugin'])
+    assert.equal(a.lastAccess, '2026-09-01')
+    const b = rows.find((r) => r.path === 'skills/b.md')
+    assert.equal(b.type, 'skill')
+    assert.equal(b.salience, undefined, 'a missing salience must not become a number')
+    assert.deepEqual(b.tags, [])
+  } finally {
+    rmSync(dir, { recursive: true, force: true })
   }
 })

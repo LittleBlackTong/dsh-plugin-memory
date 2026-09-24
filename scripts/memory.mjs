@@ -26,7 +26,7 @@ import { execFileSync } from 'node:child_process'
 import { tmpdir, homedir } from 'node:os'
 import { createHash } from 'node:crypto'
 import { ensureMemoryScaffold } from '../lib/scaffold.js'
-import { touchPages, accessSummary, today } from '../lib/pages.js'
+import { touchPages, accessSummary, today, listPagesWithMeta } from '../lib/pages.js'
 import { planIndex, applyIndex, indexIssues, syncDeclaredSummaries, INDEX_LINE_MAX } from '../lib/index-page.js'
 import { buildMemoryGraph, suggestLinks } from '../lib/graph.js'
 
@@ -258,6 +258,68 @@ function cmdGraph(store, args) {
   console.log('写进页面示例：在正文里加 `见 [某页](../path.md)`，图谱与探索都会用到这条边。')
 }
 
+/**
+ * Structured search.
+ *
+ * Keyword recall alone cannot answer "every decision tagged #memory-plugin",
+ * which is what an agent usually means; this filters on frontmatter first and
+ * only then matches text, so the result set is what was actually asked for.
+ */
+function cmdQuery(store, args) {
+  const filters = { tags: [], type: undefined, salience: undefined, stale: false, hot: false }
+  const words = []
+  for (let i = 0; i < args.length; i += 1) {
+    const arg = args[i]
+    if (arg === '--tag' && args[i + 1] !== undefined) filters.tags.push(String(args[i += 1]).replace(/^#/, ''))
+    else if (arg === '--type' && args[i + 1] !== undefined) filters.type = args[i += 1]
+    else if (arg === '--salience' && args[i + 1] !== undefined) filters.salience = Number(args[i += 1])
+    else if (arg === '--stale') filters.stale = true
+    else if (arg === '--hot') filters.hot = true
+    else if (!arg.startsWith('--')) words.push(arg)
+  }
+
+  const all = listPagesWithMeta(store)
+  let matched = all
+  if (filters.tags.length > 0) matched = matched.filter((p) => filters.tags.every((t) => p.tags.includes(t)))
+  if (filters.type !== undefined) matched = matched.filter((p) => p.type === filters.type)
+  if (Number.isFinite(filters.salience)) matched = matched.filter((p) => p.salience === filters.salience)
+  if (filters.hot) matched = matched.filter((p) => p.salience === 1)
+  if (filters.stale) matched = matched.filter((p) => p.daysSinceAccess === undefined || p.daysSinceAccess > 90)
+
+  const shown = []
+  if (filters.tags.length > 0) shown.push(`#${filters.tags.join(' #')}`)
+  if (filters.type !== undefined) shown.push(`type=${filters.type}`)
+  if (Number.isFinite(filters.salience)) shown.push(`salience=${filters.salience}`)
+  if (filters.hot) shown.push('hot')
+  if (filters.stale) shown.push('stale')
+  const suffix = shown.length > 0 ? ` (${shown.join(' ')})` : ''
+
+  if (words.length === 0) {
+    console.log(`query: ${matched.length}/${all.length} pages${suffix}`)
+    for (const page of matched) {
+      console.log(`  [s${page.salience ?? '?'}] ${page.path} — ${page.title}`)
+    }
+    return
+  }
+
+  const needle = words.join(' ').toLowerCase()
+  const inScope = new Set(matched.map((p) => p.path))
+  const hits = []
+  const hitPages = new Set()
+  for (const rel of pages(store)) {
+    if (!inScope.has(rel)) continue
+    const text = readFileSync(join(store, rel), 'utf8')
+    for (const [index, line] of text.split('\n').entries()) {
+      if (line.toLowerCase().includes(needle)) {
+        hits.push(`${rel}:${index + 1}: ${line.trim().slice(0, 160)}`)
+        hitPages.add(rel)
+      }
+    }
+  }
+  console.log(`query "${words.join(' ')}"${suffix}: ${hitPages.size} page(s) matched`)
+  console.log(hits.length > 0 ? hits.join('\n') : '  no matches')
+}
+
 function cmdStatus(store) {
   const ps = pages(store)
   const bytes = ps.map((p) => statSync(join(store, p)).size).reduce((a, b) => a + b, 0)
@@ -380,7 +442,9 @@ if (args[0] === '--self-test') {
   init [dir]               create the store scaffold
   search <query> [--touch] full-text search (--touch stamps last_access on hits)
   touch [pages...]         stamp last_access (all pages when none given)
-  graph [--suggest]        relationship report / "who should this page cite" 
+  graph [--suggest]        relationship report / "who should this page cite"
+  query [--tag x] [--type t] [--salience n] [--hot|--stale] [words]
+                           structured search: frontmatter filters, then text
   index [--check|--write|--sync-frontmatter]
                            index routing table: report drift / rewrite / import summaries
   lint                     integrity check
@@ -393,6 +457,7 @@ Store: $MEMORY_DIR or ./.memory or ~/.memory (current: ${store})`
     case 'search': cmdSearch(store, args[1], args.includes('--touch')); break
     case 'touch': cmdTouch(store, args.slice(1)); break
     case 'graph': cmdGraph(store, args.slice(1)); break
+    case 'query': cmdQuery(store, args.slice(1)); break
     case 'index': cmdIndex(store, args.slice(1)); break
     case 'lint': cmdLint(store); break
     case 'status': cmdStatus(store); break

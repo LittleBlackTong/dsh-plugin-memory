@@ -162,6 +162,8 @@ dsh-memory init [dir]                 # 创建记忆库脚手架
 dsh-memory search <query> [--touch]   # 全文检索（--touch 给命中页戳 last_access）
 dsh-memory touch [pages...]           # 手动戳 last_access（不带参数 = 全部页面）
 dsh-memory graph --suggest            # 关系报告 + 「这页该连谁」建议（只报告）
+dsh-memory query --type decision --tag dsh --hot --stale [关键词]
+                                      # 结构化检索：先按 frontmatter 过滤，再匹配正文
 dsh-memory lint                       # 完整性体检
 dsh-memory status                     # 健康概览（含陈旧页统计）
 dsh-memory pack [out.tar.gz]          # 打包导出（含 manifest）
