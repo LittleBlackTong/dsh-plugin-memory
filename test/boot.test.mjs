@@ -3,7 +3,13 @@ import assert from 'node:assert/strict'
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { renderBootBlock, needsSoulBootstrap, readBootstrapStatus, SOUL_DIRECTIVE } from '../lib/boot.js'
+import {
+  renderBootBlock,
+  needsSoulBootstrap,
+  readBootstrapStatus,
+  readTailCapped,
+  SOUL_DIRECTIVE,
+} from '../lib/boot.js'
 
 const SOUL_TEMPLATE = `# SOUL — 人格与灵魂
 
@@ -105,6 +111,42 @@ test('missing store: everything reads as needing a soul', () => {
     assert.equal(needsSoulBootstrap(dir), true)
     // No injectable files at all → boot block stays empty.
     assert.equal(renderBootBlock(dir), '')
+  } finally {
+    rmSync(dir, { recursive: true, force: true })
+  }
+})
+
+test('readTailCapped returns the END of a file, not the head', () => {
+  const dir = makeStore({})
+  try {
+    const path = join(dir, 'log.md')
+    writeFileSync(path, 'OLDEST\n' + 'x'.repeat(500) + '\nNEWEST\n', 'utf8')
+    const tail = readTailCapped(path, 20)
+    assert.ok(tail.includes('NEWEST'), 'the tail must carry the newest content')
+    assert.ok(!tail.includes('OLDEST'), 'the head must be dropped, not the tail')
+    // Shorter than the cap: the whole file comes back.
+    assert.ok(readTailCapped(path, 10_000).includes('OLDEST'))
+    assert.equal(readTailCapped(join(dir, 'missing.md'), 100), undefined)
+  } finally {
+    rmSync(dir, { recursive: true, force: true })
+  }
+})
+
+test('the boot block shows the NEWEST log entries, not the oldest', () => {
+  const dir = makeStore({ 'SOUL.md': SOUL_FILLED, 'index.md': INDEX, 'BOOTSTRAP.md': BOOTSTRAP_COMPLETE })
+  try {
+    // A long history, exactly like a real append-only log.md.
+    const lines = ['# Memory Log', '']
+    for (let i = 0; i < 200; i += 1) lines.push(`## [2026-0${i % 9 + 1}-01] kind | 历史条目 ${i}`, '')
+    lines.push('## [2026-09-23] release | 最新的一条', '')
+    writeFileSync(join(dir, 'log.md'), lines.join('\n'), 'utf8')
+
+    const block = renderBootBlock(dir)
+    assert.match(block, /最新的一条/, 'the newest entry must be injected')
+    assert.ok(!block.includes('历史条目 0\n'), 'the oldest entry must not be injected')
+    // And the headline budget stays small: this block is sent on every request.
+    const section = block.slice(block.indexOf('### 最近动态'))
+    assert.ok(section.length < 700, `recent-activity section is ${section.length} chars`)
   } finally {
     rmSync(dir, { recursive: true, force: true })
   }
