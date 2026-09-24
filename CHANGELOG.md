@@ -2,7 +2,7 @@
 
 所有记录跟随 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/) 风格；版本号与 `package.json` 保持一致。
 
-## [Unreleased]
+## [0.8.0] - 2026-09-24
 
 ### Added（checkup 报告 + 注入瘦身 + 日志修复）
 
