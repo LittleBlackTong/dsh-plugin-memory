@@ -65,11 +65,14 @@ test('a page with no real relationship is told who it should cite', () => {
   ])
   const suggestions = suggestLinks(graph)
   const a = suggestions.find((entry) => entry.page === 'skills/a.md')
-  const b = suggestions.find((entry) => entry.page === 'skills/b.md')
   assert.deepEqual(a.candidates.map((c) => c.target), ['skills/c.md'], 'A shares #ocr with C')
-  // B has no tags at all: it cannot be matched on topics, so it gets the weak
-  // "same kind of page" advice rather than silence.
-  assert.deepEqual(b.candidates.map((c) => c.target).sort(), ['skills/a.md', 'skills/c.md'])
+  // B has no tags at all: only a weak same-kind guess is possible, which is
+  // hidden unless explicitly requested.
+  const strong = suggestLinks(graph)
+  assert.ok(!strong.some((entry) => entry.page === 'skills/b.md'), 'weak-only advice is not a finding')
+  const withWeak = suggestLinks(graph, { strengths: ['strong', 'weak'] })
+  const b = withWeak.find((entry) => entry.page === 'skills/b.md')
+  assert.equal(b.candidates[0].strength, 'weak')
   assert.equal(b.candidates[0].reason, '同类型')
 
   // Once the link exists, the advice disappears: the edge is the real thing.
@@ -91,8 +94,12 @@ test('bucket tags and same-type alone never justify a suggestion', () => {
   })
   try {
     const graph = buildMemoryGraph(dir)
-    const suggestions = suggestLinks(graph)
-    assert.deepEqual(suggestions, [], 'two skill pages must not "should link" just for being skills')
+    // Default: findings only. Two skill pages sharing nothing but their bucket
+    // tag are a weak guess, not something to report.
+    assert.deepEqual(suggestLinks(graph), [], 'bucket tag + same type is not a finding')
+    const withWeak = suggestLinks(graph, { strengths: ['strong', 'weak'] })
+    assert.ok(withWeak.length > 0, 'but it is available when explicitly requested')
+    assert.equal(withWeak[0].candidates[0].strength, 'weak')
   } finally {
     rmSync(dir, { recursive: true, force: true })
   }
@@ -120,7 +127,8 @@ test('suggestions are ranked, capped and explainable', () => {
     { id: 'user/medium.md', title: '中', type: 'user', tags: ['alpha', 'beta'] },
     { id: 'user/other.md', title: '别', type: 'user', tags: ['alpha'] },
   ])
-  const suggestions = suggestLinks(graph, { limit: 2 })
+  // `user/lonely.md` has no tags, so only weak advice is possible for it.
+  const suggestions = suggestLinks(graph, { limit: 2, strengths: ['strong', 'weak'] })
   const lonely = suggestions.find((entry) => entry.page === 'user/lonely.md')
   assert.ok(lonely !== undefined, 'a page with no real edges must be reported')
   assert.equal(lonely.candidates.length, 2, 'limit must cap the candidate list')
@@ -134,7 +142,7 @@ test('a topic-less page is matched on the weakest signal, with a reason', () => 
     { id: 'skills/alone.md', title: '孤', type: 'skill', tags: [] },
     { id: 'skills/peer.md', title: '伴', type: 'skill', tags: ['dsh'] },
   ])
-  const suggestions = suggestLinks(graph)
+  const suggestions = suggestLinks(graph, { strengths: ['strong', 'weak'] })
   const alone = suggestions.find((entry) => entry.page === 'skills/alone.md')
   assert.ok(alone !== undefined, 'a page with no tags is exactly the one needing advice')
   assert.equal(alone.candidates[0].target, 'skills/peer.md')

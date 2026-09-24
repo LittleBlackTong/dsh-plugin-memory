@@ -4,6 +4,13 @@
 
 ## [Unreleased]
 
+### Added（checkup 报告 + 注入瘦身 + 日志修复）
+
+- **`dsh-memory checkup [--boot=N]`**（新增 `lib/checkup.js`）：把 lint / status / insights / graph 四个读者合成一份报告——体量、新鲜度条形图、连接度、四项一致性检查，末尾是**按优先级排序的行动清单**。设计动机：四个数字是诊断，"最该做的三件事"才是产品。有活干时退出码非 0。`lonely` 的判据是"除 index 行外没有任何关系"（索引是目录，不算关系）。
+- **补链建议分级 strong/weak**：默认只报告有内容信号的建议（共享主题 tag / 标题词），"仅同类型或同桶标签"降级为 weak，需显式请求才返回——否则每个 skill 页都会"应该"连到每个 skill 页。
+- **boot 注入瘦身 23%**（9240 → 7118 字符 ≈ 6160 → 4745 token）：`MEMORY.md` 3464 → 1415 字符（与按需加载的 `memory` 技能重叠的 9 个主题交给技能，本文件只留库自己的 schema）；动态条数 5 → 3；索引标签按语义截断而非数到第 N 个字符。
+- **修复 `log.md` 读错端**：`renderBootBlock` 用 `readCapped` 取文件**头**，而 log 是 append-only —— 100 KB 的日志意味着每次会话注入的都是**最旧**的 5 条动态。新增 `readTailCapped()` 从尾部按字符读取。影响所有已发布版本。
+
 ### Added（互链机制 + 补链建议）
 
 - **互链升级为默认动作**（`skills/memory.md` / `lib/scaffold.js` / `lib/digest-guard.js`）：remember 流程、MEMORY 模板工作流、digest 收尾指令三处都要求「给这次碰过的页面各补 1–3 条相关页链接」。动机是实测数据：一个真实记忆库 29 页里只有 1 条真互链，而图谱、跨页综合、探索全都建立在这层关系上——`index.md` 只是目录。

@@ -7,6 +7,7 @@
  *   dsh-memory search <query> [--touch]    # full-text search; --touch stamps last_access on the hits
  *   dsh-memory touch [pages...]            # stamp last_access (all pages when none given)
  *   dsh-memory graph [--suggest]           # relationship report / citation suggestions
+ *   dsh-memory checkup [--boot=N]          # one health report with prioritised actions
  *   dsh-memory index [--check|--write|--sync-frontmatter]
  *                                          # index routing table: drift / rewrite / import summaries
  *   dsh-memory lint                        # integrity check (index vs files, orphans, log format)
@@ -29,6 +30,7 @@ import { ensureMemoryScaffold } from '../lib/scaffold.js'
 import { touchPages, accessSummary, today, listPagesWithMeta } from '../lib/pages.js'
 import { planIndex, applyIndex, indexIssues, syncDeclaredSummaries, INDEX_LINE_MAX } from '../lib/index-page.js'
 import { buildMemoryGraph, suggestLinks } from '../lib/graph.js'
+import { runCheckup, formatCheckup, hasWork } from '../lib/checkup.js'
 
 const META = new Set(['SOUL.md', 'MEMORY.md', 'BOOTSTRAP.md', 'index.md', 'log.md'])
 
@@ -320,6 +322,20 @@ function cmdQuery(store, args) {
   console.log(hits.length > 0 ? hits.join('\n') : '  no matches')
 }
 
+/**
+ * One report that says what to do next: the four readers (lint / status /
+ * insights / graph) each answer a question, but a user still has to work out
+ * which problem matters. Exit code is non-zero when there is work, so a cron
+ * or a human can both consume it.
+ */
+function cmdCheckup(store, args) {
+  const bootMaxChars = Number(args.find((a) => a.startsWith('--boot='))?.slice(7)) || 12000
+  const report = runCheckup(store, { bootMaxChars })
+  const color = !args.includes('--no-color')
+  console.log(formatCheckup(report, { color }))
+  process.exit(hasWork(report) ? 1 : 0)
+}
+
 function cmdStatus(store) {
   const ps = pages(store)
   const bytes = ps.map((p) => statSync(join(store, p)).size).reduce((a, b) => a + b, 0)
@@ -443,6 +459,7 @@ if (args[0] === '--self-test') {
   search <query> [--touch] full-text search (--touch stamps last_access on hits)
   touch [pages...]         stamp last_access (all pages when none given)
   graph [--suggest]        relationship report / "who should this page cite"
+  checkup [--boot=N]       one health report with a prioritised action list
   query [--tag x] [--type t] [--salience n] [--hot|--stale] [words]
                            structured search: frontmatter filters, then text
   index [--check|--write|--sync-frontmatter]
@@ -457,6 +474,7 @@ Store: $MEMORY_DIR or ./.memory or ~/.memory (current: ${store})`
     case 'search': cmdSearch(store, args[1], args.includes('--touch')); break
     case 'touch': cmdTouch(store, args.slice(1)); break
     case 'graph': cmdGraph(store, args.slice(1)); break
+    case 'checkup': cmdCheckup(store, args.slice(1)); break
     case 'query': cmdQuery(store, args.slice(1)); break
     case 'index': cmdIndex(store, args.slice(1)); break
     case 'lint': cmdLint(store); break
