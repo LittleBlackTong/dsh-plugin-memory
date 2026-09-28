@@ -2,6 +2,23 @@
 
 所有记录跟随 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/) 风格；版本号与 `package.json` 保持一致。
 
+## [0.9.0] - 2026-09-28
+
+### Added
+
+- **设置侧栏专属标记（大脑 + 节点）**：官方 `settings.section` 槽**只投影 `id` / `order` / `label`**，没有 icon 字段可传；设置 shell 的 `navIcon(id)` 只认一小撮白名单 id（account / models / agent-presets / plugins / archived-sessions），其余一律回落到它自己的齿轮——所以本插件（以及所有第三方区块）此前都挂着齿轮。现在挂载后**按 label 认出自己那一行**，给它打标记、藏掉齿轮，再用 `mask-image` 画专属标记；`MutationObserver` 跟随语言切换与重挂载重新认领，`ctx.effect` 负责摘干净。**只碰我们自己那一行**，不触摸任何 shell 结构。纯判定逻辑在 `lib/settings-nav-icon.js`（含单测），客户端半按项目既有约定内联一份等价实现（同 `graph-drag`）。⚠️ **官方哪天给 `settings.section` 长出 `icon` 字段，这段即可删除**——dsh-market、dsh-better-sidebar、dsh-skill-mcp-panel 用的是同一招。
+  - **图形不是手搓的**：轮廓取自 **Lucide 的 `brain`（MIT）左半球**，程序化等比缩放到这张 16×16 网格。实测教训：手绘贝塞尔试了四版，脑回起伏在 16px 下全糊成一个 C 或一朵云；换成专业几何才读得出脑叶。
+- **设置区块底部新增「反馈 / 提 issue」入口**：按钮样式（带边框与底色、`padding: 8px 16px`），指向本仓库的 issue 新建页，`target="_blank"` + `rel="noopener noreferrer"`（DSH Desktop 会把外部 HTTPS 交给系统浏览器打开，不携带内嵌会话或 token）。
+
+### Changed
+
+- **侧栏区块名 `记忆 Memory` → `Memory`**（只保留英文）。注意这个字符串**同时是图标认领的匹配键**——显示文案与匹配键必须是同一个，否则语言切换后行与标记会对不上。
+
+### Tests
+
+- 新增 `test/settings-nav-icon.test.mjs`（**9 项**）：label 精确匹配（trim 后全等，非子串）、空 label 谁都不认领、CSS 生成（藏齿轮 + mask + currentColor 跟随主题）、标记 SVG 规格（`viewBox 0 0 16 16` / `stroke-width 1.3` / round cap+join / 纯黑因 mask 只读 alpha）、图形元素计数（1 闭合轮廓 + 3 引出线 + 5 节点）。
+- 全量 **173/173 通过**。
+
 ## [0.8.1] - 2026-09-28
 
 ### Fixed（DSH session format v4 兼容）
