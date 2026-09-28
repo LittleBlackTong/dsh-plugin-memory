@@ -69,6 +69,16 @@ dsh plugin --profile <profile> add dsh-plugin-memory
 
 重启 profile（DSH Desktop 重启应用）后生效。
 
+> 📌 **版本要求：DSH session format v4（官方 DeepSeek Harness 0.1.7+）**
+>
+> 注入消息的 source 使用 producer-owned kind `plugin:memory`。v4 的原生准入明确拒绝 v3 时代的
+> `{ kind: 'plugin', plugin: 'memory' }` wrapper，报
+> `format v4 message requires a producer-owned source kind`（该错误被包成 `code: "UNKNOWN"`，
+> 所以在界面上会显示成 `... source kind UNKNOWN`——`UNKNOWN` 是错误码，不是 kind 值）。
+>
+> v4 与 v3 的白名单**互斥**（v3 只认 `plugin`），因此无法同时兼容两版。
+> **0.8.0 及更早版本在 v4 上会触发该错误**；旧版 DSH 请停留在 0.8.0。
+
 > ⚠️ **不要**再往 profile 的 `cordis.patch.yml` 里手写 `- insert: {id: dsh-memory, ...}`：
 > 那会与 bundle manifest 的自动挂载产生两条同名 entry，整个 profile 会以
 > `duplicate loader entry id "dsh-memory"` 启动失败（2026-08-18 实机事故）。

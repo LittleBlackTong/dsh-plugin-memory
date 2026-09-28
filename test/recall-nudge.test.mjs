@@ -98,8 +98,9 @@ test('buildRecallNudgeMessage has the followup shape the harness expects', () =>
   assert.equal(message.content[0].type, 'text')
   assert.ok(message.content[0].text.includes('小蓝主动追忆'))
   assert.ok(message.content[0].text.includes('a'))
-  assert.equal(message.source.kind, 'plugin')
-  assert.equal(message.source.plugin, 'memory')
+  // Session format v4 admits only a producer-owned kind; the retired
+  // {kind:'plugin', plugin:'memory'} wrapper is rejected at adoption.
+  assert.deepEqual(message.source, { kind: 'plugin:memory' })
 })
 
 test('arms on first eligible idle, then recalls after the (zero) interval', () => {
@@ -112,7 +113,7 @@ test('arms on first eligible idle, then recalls after the (zero) interval', () =
   assert.equal(agent.followups.length, 0)
   agent.emitTurnStopped() // interval elapsed → fire
   assert.equal(agent.followups.length, 1)
-  assert.equal(agent.followups[0].source.plugin, 'memory')
+  assert.deepEqual(agent.followups[0].source, { kind: 'plugin:memory' })
   nudge.dispose()
   rmSync(dir, { recursive: true, force: true })
 })
@@ -244,7 +245,7 @@ test('polls while fully idle: fires a recall with no turn boundary', (t) => {
   assert.equal(agent.followups.length, 0)
   t.mock.timers.tick(30000) // second poll: fires
   assert.equal(agent.followups.length, 1)
-  assert.equal(agent.followups[0].source.plugin, 'memory')
+  assert.deepEqual(agent.followups[0].source, { kind: 'plugin:memory' })
   nudge.dispose()
   rmSync(dir, { recursive: true, force: true })
 })

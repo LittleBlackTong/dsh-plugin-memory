@@ -99,8 +99,9 @@ test('buildDigestNudgeMessage has the followup shape the harness expects', () =>
   assert.equal(message.content.length, 1)
   assert.equal(message.content[0].type, 'text')
   assert.ok(message.content[0].text.includes('digest'))
-  assert.equal(message.source.kind, 'plugin')
-  assert.equal(message.source.plugin, 'memory')
+  // Session format v4 admits only a producer-owned kind; the retired
+  // {kind:'plugin', plugin:'memory'} wrapper is rejected at adoption.
+  assert.deepEqual(message.source, { kind: 'plugin:memory' })
 })
 
 test('nudges an idle agent when the store is stale', () => {
@@ -109,7 +110,7 @@ test('nudges an idle agent when the store is stale', () => {
   guard.start()
   agent.emitTurnStopped()
   assert.equal(agent.followups.length, 1)
-  assert.equal(agent.followups[0].source.plugin, 'memory')
+  assert.deepEqual(agent.followups[0].source, { kind: 'plugin:memory' })
   guard.dispose()
 })
 

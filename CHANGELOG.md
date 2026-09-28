@@ -2,6 +2,22 @@
 
 所有记录跟随 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/) 风格；版本号与 `package.json` 保持一致。
 
+## [0.8.1] - 2026-09-28
+
+### Fixed（DSH session format v4 兼容）
+
+- **修复注入消息被 v4 拒绝导致的运行失败**：`recall-nudge` 与 `digest-guard` 生成的消息 source 从 `{ kind: 'plugin', plugin: 'memory' }` 改为 **`{ kind: 'plugin:memory' }`**。
+  - **症状**：`SessionFormatError: format v4 message requires a producer-owned source kind`。它被 `dsh-agent-loop` 当作非 LLM 错误包成 `{ message, code: 'UNKNOWN' }`，界面上显示为 `... source kind UNKNOWN`——**`UNKNOWN` 是错误码，不是 kind 值**。
+  - **原因**：session format **v4**（官方 DeepSeek Harness **0.1.7+**）的原生准入 `source()` 明确拒绝 `kind === "plugin"` 这一 v3 时代的 wrapper，要求 producer-owned kind；第三方插件的形态是 `plugin:<name>`（`producerKind()` 的兜底分支）。
+  - **兼容性门槛（重要）**：v4 校验与 v3 的 `SOURCE_KINDS` 白名单**互斥**——v3 白名单里只有 `plugin`，没有 `plugin:memory`，所以**无法同时兼容两版**。**本版起要求 DSH session format v4（官方 0.1.7+）**；旧版 DSH 请停留在 0.8.0。
+  - **历史 session 不受影响**：v3→v4 迁移的 `rewritePluginSource()` 会自动把旧 wrapper 转换成新格式，只有**新注入**的消息需要改。
+
+### Tests
+
+- `test/recall-nudge.test.mjs` / `test/digest-guard.test.mjs` 的 source 断言改为 `deepEqual(source, { kind: 'plugin:memory' })`——顺带卡住「不得再带 `plugin` 字段」。
+- 先写测试并确认其失败（`actual: {kind:'plugin',plugin:'memory'}` vs `expected: {kind:'plugin:memory'}`）后才改实现。
+- 单测 **32/32 通过**。全量 151 项中 3 项失败（`insights-route` / `page-access` / `plugin-metadata`）为既有的 `@deepseek-ai/schemastery` 依赖缺失，已用 `git stash` 基线对比确认**与本次改动无关**。
+
 ## [0.8.0] - 2026-09-24
 
 ### Added（checkup 报告 + 注入瘦身 + 日志修复）
