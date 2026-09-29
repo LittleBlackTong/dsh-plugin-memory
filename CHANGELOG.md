@@ -2,6 +2,15 @@
 
 所有记录跟随 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/) 风格；版本号与 `package.json` 保持一致。
 
+## [0.9.1] - 2026-09-29
+
+### Fixed（DSH 0.2.0 兼容）
+
+- **声明支持 DSH 0.2.x 运行时**：`peerDependencies` 中 `@deepseek-ai/dsh-skill` 与 `@deepseek-ai/dsh-system-prompt` 的范围由 `^0.1.2-alpha.1` 扩为 **`^0.1.2-alpha.1 || ^0.2.0-rc.1`**。
+  - **症状**：DSH 运行时升级到 `0.2.0-rc.1` 后，插件被兼容性闸门判定为 incompatible，启动时**整个 bundle 被静默跳过**（`skipping profile bundle "dsh-plugin-memory"`），记忆注入与全部 remember/recall 工作流一起失效——插件不是报错降级，而是**根本没加载**。
+  - **原因**：DSH 的 `evaluatePluginCompatibility` **只按 `peerDependencies` 里的 `@deepseek-ai/dsh-*` 范围**与运行版本做 semver 匹配（`includePrerelease`），旧范围不含 `0.2.x`，于是被拒。
+  - **说明**：本插件实际使用的 `ctx.skills.register()`（`{name, description, content, source, resourceBase}`）与 `ctx.systemPrompt.context()` 在 0.2.0 中**签名未变**，属声明过时而非接口破裂；沿用旧范围可继续兼容 `0.1.x` 运行时。
+
 ## [0.9.0] - 2026-09-28
 
 ### Added
