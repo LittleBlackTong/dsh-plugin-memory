@@ -22,7 +22,7 @@ import {
   readdirSync, readFileSync, writeFileSync, existsSync, statSync,
   mkdirSync, cpSync, rmSync,
 } from 'node:fs'
-import { join, resolve, relative, basename } from 'node:path'
+import { join, resolve, relative, basename, sep } from 'node:path'
 import { execFileSync } from 'node:child_process'
 import { tmpdir, homedir } from 'node:os'
 import { createHash } from 'node:crypto'
@@ -55,8 +55,10 @@ function walk(dir, out = []) {
 }
 
 function pages(store) {
+  // POSIX separators on every platform: index.md links are written with `/`,
+  // so a Windows `\` would make every page look like an orphan in `lint`.
   return walk(store).filter((f) => f.endsWith('.md'))
-    .map((f) => relative(store, f))
+    .map((f) => relative(store, f).split(sep).join('/'))
     .filter((r) => !META.has(basename(r)))
 }
 
