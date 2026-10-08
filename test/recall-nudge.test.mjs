@@ -103,6 +103,35 @@ test('buildRecallNudgeMessage has the followup shape the harness expects', () =>
   assert.deepEqual(message.source, { kind: 'plugin:memory' })
 })
 
+// ── prompt shape (2026-10-08 regression) ───────────────────────────────────
+//
+// Symptom: the GUI showed the recall request, then "done" with no text at all.
+// Session events showed assistant messages carrying `reasoning` and nothing
+// else — no text, no tool call — so the turn ended empty.
+//
+// Cause: the prompt said 「换着说，别重复最近提过的」. To honour it the model
+// enumerated every topic it had already raised (a list that grows with the
+// session), burned its whole reasoning budget doing so, and never emitted the
+// actual line. The prompt must not impose that enumeration, and must say to
+// speak directly instead of drafting inside the reasoning block.
+
+test('the prompt never asks the model to enumerate what it already said', () => {
+  const text = buildRecallNudgeMessage(['a', 'b', 'c']).content[0].text
+  assert.doesNotMatch(text, /别重复/, 'asking to avoid repeats forces a scan of the whole session')
+  assert.doesNotMatch(text, /换着说/, 'the old wording is the regression trigger')
+})
+
+test('the prompt tells the model to speak directly instead of drafting first', () => {
+  const text = buildRecallNudgeMessage(['a']).content[0].text
+  assert.match(text, /不要先/, 'must forbid warming up inside the reasoning block')
+  assert.match(text, /草稿|排练/, 'must name the draft-first failure mode explicitly')
+})
+
+test('the prompt frames the seeds as optional rather than a checklist to compare', () => {
+  const text = buildRecallNudgeMessage(['a', 'b', 'c']).content[0].text
+  assert.match(text, /不必核对|不用核对/, 'comparing seeds is the second budget sink')
+})
+
 test('arms on first eligible idle, then recalls after the (zero) interval', () => {
   const agent = makeAgent()
   const dir = makeStore()
