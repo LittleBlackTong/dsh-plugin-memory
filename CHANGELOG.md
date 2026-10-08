@@ -2,6 +2,31 @@
 
 所有记录跟随 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/) 风格；版本号与 `package.json` 保持一致。
 
+## [0.9.2] - 2026-10-08
+
+### Fixed（Windows 路径分隔符）
+
+- **Windows 上 `lint` 不再把每个页面都报成 orphan**（贡献者 [@lukiriun-bit](https://github.com/lukiriun-bit)，[PR #1](https://github.com/LittleBlackTong/dsh-plugin-memory/pull/1)）。`pages()` 原样返回 `path.relative()` 的结果，在 Windows 上是 `user\a.md`，而 `index.md` 的链接写的是 `/`——于是**每个已被索引的页面**都被判成 `orphan page not in index.md`，健康的库也会让 `lint` 退出 1。现在统一规范成 POSIX 分隔符。
+  - **与既有约定对齐**：`lib/pages.js` 的 `listPagePaths()` 早就是 `relative(...).split(sep).join('/')`，文件头注释也写明 `store-relative paths using / separators`。这次是把 `scripts/memory.mjs` 这处**漏网的**补齐，写法与其逐字一致。
+  - **影响面逐个核对过**（改分隔符最怕破坏调用方）：
+    | 调用点 | 判定 |
+    |---|---|
+    | `cmdLint` | ✅ 正是修复目标（与 `index.md` 链接比较） |
+    | `cmdQuery` | ✅ 比较对象 `matched` 来自 `lib/pages.js`，本来就是 `/` |
+    | `cmdTouch` | ✅ 由「全被判 orphan」变正确 |
+    | `cmdStatus` / `pack` | ✅ Node 的 fs 在 Windows 同样接受 `/` |
+
+### Tests
+
+- 新增 `test/lint-index-separators.test.mjs`（贡献者提供）：断言「被索引链接的页面不得被判 orphan」。
+  - ⚠️ **该测试在 POSIX 上没有区分度**（`sep` 就是 `/`，改前改后都通过）。它能锁定行为，但**无法在 macOS/Linux CI 上证明 Windows 端的修复**——这一点在合并评审时已说明。
+- 全量 **174/174 通过**（基线 173/173，增量正是上面这个测试）。
+- `npm test`（self-test：`init` / `pack` / `unpack`）通过。
+
+### Notes
+
+- `scripts/memory.mjs` 的 `manifestFor()`（pack 用的文件清单）仍是原生 `relative()`，属**同类残留**；它同平台自洽，只有跨平台迁移（Windows pack → Linux unpack）才可能出问题，留待后续顺手统一。
+
 ## [0.9.1] - 2026-09-29
 
 ### Fixed（DSH 0.2.0 兼容）
