@@ -1,7 +1,7 @@
 {
   "name": "dsh-plugin-memory",
   "description": "Long-term memory plugin for DeepSeek Harness: persistent cross-session markdown memory with a soul/persona file, auto-injected at every session start, plus remember/recall/consolidate/forget workflows and portable migration tooling.",
-  "version": "0.9.3",
+  "version": "0.9.4",
   "license": "MIT",
   "type": "module",
   "main": "lib/index.js",
@@ -33,6 +33,7 @@
     "cordis.patch.yml",
     "CHANGELOG.md",
     "README.md",
+    "README.zh.md",
     "LICENSE"
   ],
   "scripts": {

@@ -1,5 +1,7 @@
 # dsh-plugin-memory
 
+**English** ｜ [中文](README.zh.md)
+
 <p align="center">
   <a href="https://github.com/LittleBlackTong/dsh-plugin-memory"><img alt="GitHub" src="https://img.shields.io/badge/GitHub-LittleBlackTong%2Fdsh--plugin--memory-blue?logo=github"></a>
   <a href="https://www.npmjs.com/package/dsh-plugin-memory"><img alt="npm" src="https://img.shields.io/npm/v/dsh-plugin-memory?logo=npm"></a>
@@ -7,145 +9,137 @@
   <img alt="node" src="https://img.shields.io/badge/node-%3E%3D18-green">
 </p>
 
-> DeepSeek Harness 长期记忆插件：跨会话、可迁移、带「灵魂」的 markdown 记忆库。
+> A long-term memory plugin for DeepSeek Harness: a cross-session, portable, markdown memory store that comes with a soul.
 
-**English TL;DR** — A Cordis plugin for [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) that gives agents a persistent, cross-session, migratable long-term memory: a markdown + git store (inspired by Karpathy's *LLM Wiki* pattern) with a `SOUL.md` persona file, **auto-injected at every session start** via the system-prompt runtime context, plus remember / recall / consolidate / forget workflows and portable CLI tooling.
+A Cordis plugin for [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) that gives agents persistent, cross-session, migratable long-term memory: a markdown + git store (inspired by Karpathy's *LLM Wiki* pattern) with a `SOUL.md` persona file, **auto-injected at every session start** through the system-prompt runtime context, plus remember / recall / consolidate / forget workflows and portable CLI tooling.
 
-## 特性
+## Features
 
-- **开机强制注入（带路由表保护）**：插件通过 `ctx.systemPrompt.context()` 把记忆 boot 块（`SOUL.md` 人格 + `MEMORY.md` 协议 + `index.md` 目录 + 最近动态）注入会话上下文。宿主按投影去重：记忆不变就不重复注入，变化时新快照自动取代旧的——这是"新会话必先加载记忆"的**硬保障**，不需要模型碰运气调技能。总预算是 `bootMaxChars`，**按文件分配**：每个文件先拿一份均分（受实际大小封顶），剩余额度优先给 `index.md`、再给尚有内容未注入的文件——所以记忆库长大时，目录的尾部不会先被截掉（详见「boot 预算分配」）。默认还带**两道礼貌闸门**：`deferUntilUserSpeaks`（用户开口后才注入）与 `activeSessionOnly`（只注入当前激活会话），见「配置」。
-- **last_access 自动戳记**：`MEMORY.md` 的 salience 衰减规则依赖 `last_access`，而它以前纯粹靠自觉——模板里有字段、规则里提到它，但没有任何代码去写它，于是每个页面都原地变老、衰减表形同虚设。现在会话收到第一条真实用户消息时，插件会把 boot 块**实际注入过的页面**（`SOUL.md` / `MEMORY.md` / `index.md` + 目录里被引用到的页）戳成当天，每会话一次、按天幂等，只改 `last_access` 一行；`dsh-memory touch <pages...>` 可手动补记，`trackPageAccess: false` 可关闭。
-- **SOUL.md 铸魂**：安装后首要任务是和用户对话定义灵魂（名字、性格、价值观、语气、边界）、确认身份与关系（`BOOTSTRAP.md` 清单驱动，complete 前优先于常规任务）。
-- **铸魂自动引导**：记忆库还没有灵魂（`BOOTSTRAP.md` 非 complete，或 `SOUL.md` 仍是占位模板）时，boot 块会自动前置一段第一人称引导词——「我的首要任务是确认我是谁，还有你是谁：我叫什么名字、怎么称呼你、你我是什么关系、我该是什么样的性格」——像 OpenClaw 初始化那样，**由 agent 在对话里主动发起铸魂**，逐项问、逐项写回，而不是等用户来喂。铸魂完成后引导词自动消失，零开销。
-- **复利记忆**：遵循 Karpathy 的 *LLM Wiki* 约定——记忆是"一次编译、持续保鲜"的持久产物，不是每次查询重新 RAG。remember / recall / consolidate / forget 四操作 + salience 三级衰减。
-- **可迁移**：记忆本体是纯 markdown + git + 自描述 schema，任何能读 markdown 的 agent 都能接手。`dsh-memory pack/unpack` 打包迁移。
-- **内嵌技能**：通过 `ctx.skills.register()` 注册 `memory` 技能（操作协议随插件分发）；项目级 `.dsh/skills/memory` 文件技能仍可覆盖它。
-- **防懒 digest 唤醒**：每轮结束后，若 agent 空闲且记忆库超过 `digestNudgeAfterMinutes` 未写入，插件注入一条 digest 提醒（合成消息，走 `agent.followup`），把"会话收尾沉淀"从靠自觉变成有机制兜底；带冷却与每会话限次，不骚扰。**独立于 dsh-plugin-heartbeat**，两插件各自可装、互不依赖。
-- **主动追忆（拟人化）**：对话空下来时，插件会以第一人称主动提起一件**真实记得**的、关于用户或你们之间的事（偏好、往事、未了的决定、最近的进展），把记忆从"只写回"变成"也用起来"——像老友自然想起那样，而非报状态。间隔在最短/最长之间**随机取值**（不固定节奏），配合每会话限次，不骚扰、不编造、不硬聊；纯对话行为，不写记忆库。**同样独立于 heartbeat**。
-- **git 自动提交**：记忆库变更静默 `autoCommitQuietSeconds` 后自动 `git add -A && git commit`（无 `.git` 则跳过）——历史可回滚不再依赖 agent 记得 commit。
-- **设置面板**：在 DSH 设置页提供「记忆 Memory」区块——总开关、记忆目录、开机注入、技能注册、主动追忆（开关 + 随机间隔范围 + 每会话次数）均可热改，立即生效，无需重启。
-- **index 自动整理（声明式编译）**：索引行不再手写。页面在 frontmatter 里声明 `summary:`，`dsh-memory index --write` 把行重写为它的投影（标签 ≤32 / 摘要 ≤48 / 整行 ≤132 字符），**只改行内容，分节与顺序逐字节保留**，且幂等。`index --check` 给机器判定（有漂移退出码非 0），`index --sync-frontmatter` 把已写在 index 里的摘要回填进页面（老库一次性迁移）。digest 提醒会在索引漂移时附一句提示，agent 顺手就能修。
-- **互链成为默认动作**：`index.md` 是目录（谁存在），页间互链才是**关系**（谁和谁有关）——实测一个真实记忆库里 29 页只有 1 条真互链，而图谱与跨页综合全都建立在这层关系上。现在三处一起推：`skills/memory.md` 的 remember 流程、`MEMORY.md` 模板的工作流、以及 digest 提醒的收尾指令，都明确要求"给这次碰过的页面各补 1–3 条相关页链接"。
-- **补链建议**：`dsh-memory graph --suggest` 列出「只有索引入口、没有任何内容关系」的页面该引用谁——按共享主题 tag、标题词、同类型打分，并说明理由（`共享 #dsh` / `标题词 dsh` / `同类型`）。只报告不写入：是否连、怎么连由 agent 决定。`GET /api/memory/graph?suggest=1` 同源。
-- **记忆图谱**：设置页里一张只读关系图 —— 不只是 `index.md` 那种"索引连着所有页"的星形，而是把页面**已经编码但没人画出来**的关系画出来：**索引路由**（`index.md` 指向每一页——这是全库最大的边集，43 条；先前版本跳过了元文件，导致 index 在图上孤立无援）、页间显式 markdown 链接（含相对路径解析）、共享 frontmatter tag（通用容器 tag 如 `project`/`skill` 会被忽略，稠密 tag 走锚点链而非全连接）。坐标由服务端 `lib/graph-layout.js` 一次性算好（确定性、无随机、无依赖），客户端只负责画 SVG。**可交互**：滚轮缩放（以光标为中心，缩放范围 0.4×–2.5×，非 passive 监听所以不会连带滚动设置页）、拖空白处平移、`重置视图` 回到全图；按住节点即可拖走，直接邻居按距离轻微跟随，松手后带缓动滑回原布局——拖动期间暂停过渡做到 1:1 跟手，用 O(邻居数) 的局部松弛而不是逐帧全量力导向（后者在几百页时会卡）。悬停高亮邻里，首次渲染从中心绽开（尊重 `prefers-reduced-motion`）。图谱**每 25 秒自动刷新**（面板开着时记忆变更会自己出现，副标题显示「更新于 HH:MM:SS」）；取数失败保留上一张图而不是清空。视图数学（`zoomAt`/`panBy`/`toGraphPoint`）在 `lib/graph-view.js` 里是纯函数并有测试——缩放中心不漂移这件事必须被钉住。`GET /api/memory/graph`（只读、实时，`?types=1` 追加同类型弱边）。三类边在图上可区分：页间互链＝实线蓝、索引路由＝灰色虚线、共享 tag＝细线。
-- **`dsh-memory checkup`**：把四个读者（lint 的完整性、status 的计数、看板的体量与新鲜度、graph 的关系）合成**一份带优先级的报告** —— 体量、新鲜度条形图、连接度、一致性检查，最后给出"最该做的 N 件事"。四个数字是诊断，"做这三件事"才是产品。有活干时退出码非 0，可被脚本消费。`--boot=N` 用于按你的 boot 预算计算索引占比。
-- **记忆健康看板**：同一区块下方是一张**只读**看板——记忆页数 / index 路由数 / 记忆字数、访问新鲜度条形图（今天 / ≤7 / ≤30 / ≤90 / >90 天）、四项体检结论（index 链接、孤儿页、frontmatter、新鲜度）与健康分、陈旧页候选、最近 5 条动态。数据来自新增的 `GET /api/memory/insights`（每次请求实时统计，不缓存），体检口径与 `dsh-memory lint` 同源，所以看板与 CLI 不会互相打脸。
-- **零构建**：纯 ESM JavaScript，无编译步骤，`pnpm add` 即用。
+- **Mandatory boot injection (with routing-table protection)**: the plugin injects a memory boot block (`SOUL.md` persona + `MEMORY.md` protocol + `index.md` directory + recent activity) into the session context via `ctx.systemPrompt.context()`. The host deduplicates by projection: an unchanged memory is injected once, and a changed memory replaces the previous snapshot — this is the **hard guarantee** that a new session always loads memory first, rather than hoping the model calls a skill. The total budget is `bootMaxChars`, **allocated per file**: every file first gets an equal share (capped by its real size), and the remaining budget goes to `index.md` first, then to files that still have content left — so as the store grows, the tail of the directory is not the first thing to be truncated (see "boot budget allocation"). Two polite gates ship enabled by default: `deferUntilUserSpeaks` (inject only after the user speaks) and `activeSessionOnly` (inject only into the currently active session) — see "Configuration".
+- **Automatic `last_access` stamping**: the salience decay rules in `MEMORY.md` depend on `last_access`, which used to be pure self-discipline — the field existed in the template and the rules mentioned it, but no code ever wrote it, so every page silently aged and the decay table was decorative. Now, on the first real user message of a session, the plugin stamps today's date onto the pages the boot block **actually injected** (`SOUL.md` / `MEMORY.md` / `index.md` plus the pages the directory references) — once per session, idempotent per day, touching only the `last_access` line. `dsh-memory touch <pages...>` backfills manually; `trackPageAccess: false` disables it.
+- **SOUL.md soul-forging**: right after installation, the first task is a conversation with the user to define a soul (name, personality, values, tone, boundaries) and to confirm identity and relationship, driven by the `BOOTSTRAP.md` checklist, which takes priority over ordinary tasks until complete.
+- **Automatic soul-forging guidance**: while the store has no soul yet (`BOOTSTRAP.md` not complete, or `SOUL.md` still the placeholder template), the boot block prepends a first-person prompt — "my first job is to establish who I am and who you are: what my name is, what to call you, what we are to each other, and what personality I should have" — so the agent **starts the forging conversation itself**, item by item, writing each answer back, OpenClaw-style, instead of waiting to be fed. The prompt disappears once forging completes, at zero cost.
+- **Compounding memory**: follows Karpathy's *LLM Wiki* convention — memory is a durable artifact that is compiled once and kept fresh, not re-RAG'd per query. Four operations (remember / recall / consolidate / forget) plus three-level salience decay.
+- **Portable**: the store is plain markdown + git + a self-describing schema; any agent that reads markdown can take it over. `dsh-memory pack/unpack` moves it between machines.
+- **Embedded skill**: registers the `memory` skill through `ctx.skills.register()` (the operating protocol ships with the plugin); a project-level `.dsh/skills/memory` file skill can still override it.
+- **Anti-laziness digest nudge**: after a turn ends, if the agent sits idle and the store has not been written for `digestNudgeAfterMinutes`, the plugin injects a digest reminder (a synthetic message through `agent.followup`), turning "settle the session at the end" from self-discipline into a mechanism, with cooldown and a per-session cap so it never nags. **Independent of dsh-plugin-heartbeat** — either plugin can be installed alone.
+- **Proactive recall (personification)**: when the conversation goes quiet, the plugin brings up, in the first person, one thing it **genuinely remembers** about you or the two of you (a preference, a past event, an open decision, recent progress) — turning memory from "write-only" into something actually used, the way an old friend naturally recalls something rather than reporting status. The interval is **randomised** between a minimum and a maximum (no fixed rhythm), paired with a per-session cap: no nagging, no fabrication, no forcing conversation. Purely conversational; it never writes the store. **Also independent of heartbeat**.
+- **Automatic git commits**: after `autoCommitQuietSeconds` of quiet, store changes are silently `git add -A && git commit` (skipped when there is no `.git`) — history becomes rollback-able without depending on the agent remembering to commit.
+- **Settings panel**: a "Memory" section in the DSH settings page — master switch, store directory, boot injection, skill registration, and proactive recall (switch + random interval range + per-session cap) are all hot-editable and take effect immediately, no restart.
+- **Automatic index upkeep (declarative compilation)**: index lines are no longer hand-written. A page declares `summary:` in its frontmatter, and `dsh-memory index --write` rewrites the line as a projection of it (tag ≤32 / summary ≤48 / whole line ≤132 characters), **changing only line content while preserving sections and order byte for byte**, and idempotently. `index --check` gives a machine verdict (non-zero exit when there is drift), and `index --sync-frontmatter` backfills summaries already written in the index into the pages (a one-off migration for older stores). The digest reminder appends a note when the index has drifted, so the agent can fix it in passing.
+- **Cross-linking as a default action**: `index.md` is the directory (who exists); page-to-page links are the **relationships** (who relates to whom). In a real store measured here, 29 pages had only 1 genuine cross-link, yet the graph and all cross-page synthesis rest on that layer. Three places now push it together: the remember flow in `skills/memory.md`, the workflow in the `MEMORY.md` template, and the closing instruction of the digest reminder all require "add 1–3 related-page links for every page you touched this time".
+- **Link suggestions**: `dsh-memory graph --suggest` lists, for pages that have only their index entry and no content relationship, who they ought to reference — scored by shared topic tags, title words, and same type, with the reason stated (`shared #dsh` / `title word dsh` / `same type`). Report-only: whether and how to link stays the agent's call. Also available as `GET /api/memory/graph?suggest=1`.
+- **Memory graph**: a read-only relationship graph in the settings page — not just the `index.md` star (the index is connected to everything), but the relationships pages **already encode and nobody ever drew**: index routing (`index.md` points at every page — the largest edge set in the store, 43 edges; earlier versions skipped meta files, which left the index stranded on the graph), explicit markdown links between pages (with relative path resolution), and shared frontmatter tags (generic container tags like `project`/`skill` are ignored; dense tags go through an anchor chain rather than all-to-all). Coordinates are computed once on the server by `lib/graph-layout.js` (deterministic, no randomness, no dependencies); the client only draws SVG. **Interactive**: wheel zoom (cursor-centred, 0.4×–2.5×, non-passive listener so the settings page does not scroll along), drag empty space to pan, `Reset view` to return to the whole graph; hold a node to drag it, direct neighbours follow slightly by distance, and it eases back to the layout on release — transitions pause during a drag for 1:1 tracking, using an O(neighbours) local relaxation instead of a per-frame full force simulation (which stalls at a few hundred pages). Hover highlights the neighbourhood; the first render blooms out from the centre (respecting `prefers-reduced-motion`). The graph **auto-refreshes every 25 seconds** (changes appear while the panel is open, with "updated at HH:MM:SS" in the subtitle); a failed fetch keeps the previous graph instead of clearing it. The view maths (`zoomAt`/`panBy`/`toGraphPoint`) are pure functions in `lib/graph-view.js` with tests — "the zoom centre must not drift" is pinned down. `GET /api/memory/graph` (read-only, live; `?types=1` adds weak same-type edges). Three edge kinds are distinguishable: page links = solid blue, index routing = grey dashed, shared tags = thin lines.
+- **`dsh-memory checkup`**: folds the four readers (lint's integrity, status's counts, the dashboard's size and freshness, graph's relationships) into **one prioritised report** — size, freshness bars, connectivity, consistency checks, ending with "the N things most worth doing". The four numbers are diagnosis; "do these three things" is the product. Exits non-zero when there is work to do, so scripts can consume it. `--boot=N` computes the index share against your boot budget.
+- **Memory health dashboard**: below the same section is a **read-only** dashboard — memory pages / index routes / word count, an access-freshness bar chart (today / ≤7 / ≤30 / ≤90 / >90 days), four health verdicts (index links, orphan pages, frontmatter, freshness) with a health score, stale-page candidates, and the 5 most recent log entries. Data comes from the new `GET /api/memory/insights` (computed live per request, never cached), and its criteria share a source with `dsh-memory lint`, so the dashboard and the CLI cannot contradict each other.
+- **Zero build**: plain ESM JavaScript, no compilation step, usable straight after `pnpm add`.
 
-## 架构
+## Architecture
 
-插件只拥有**工作流**，不拥有**数据格式**：
+The plugin owns the **workflow**, never the **data format**:
 
 ```
-dsh-plugin-memory（本插件）
-├── lib/index.js        # Cordis 入口：boot 注入 + 运行时技能注册 + settings 热改
-├── lib/boot.js         # boot 块渲染（SOUL/MEMORY/index + 最近 log，按文件分配预算）
-├── lib/pages.js        # 页面访问记账：extractReferencedPages / touchPages（last_access）
-├── lib/insights.js     # 记忆健康看板的数据层（页数/分布/新鲜度/体检，只读）
-├── lib/activity-tracker.js # 两道礼貌闸门：用户是否开口 + 当前激活会话
-├── lib/digest-guard.js # 防懒 digest 唤醒（空闲 + 记忆库久未写 → followup 提醒）
-├── lib/recall-nudge.js # 主动追忆（空闲 → 第一人称提起一件真实往事，纯对话不写库）
-├── lib/scaffold.js     # 记忆库脚手架（模板只建不覆盖）
-├── lib/client.js       # 客户端半：设置面板「记忆 Memory」区块 + 记忆健康看板
-├── skills/memory.md    # 内嵌技能的操作协议正文
-└── scripts/memory.mjs  # CLI：init/search/touch/lint/status/pack/unpack
+dsh-plugin-memory (this plugin)
+├── lib/index.js        # Cordis entry: boot injection + runtime skill registration + settings hot-edits
+├── lib/boot.js         # boot block rendering (SOUL/MEMORY/index + recent log, budgeted per file)
+├── lib/pages.js        # page access accounting: extractReferencedPages / touchPages (last_access)
+├── lib/insights.js     # data layer for the health dashboard (pages/distribution/freshness/checks, read-only)
+├── lib/activity-tracker.js # the two polite gates: has the user spoken + is this the active session
+├── lib/digest-guard.js # anti-laziness digest nudge (idle + store unwritten -> followup reminder)
+├── lib/recall-nudge.js # proactive recall (idle -> one true recollection in the first person, never writes)
+├── lib/scaffold.js     # store scaffolding (templates are created, never overwritten)
+├── lib/client.js       # client half: the "Memory" settings section + health dashboard
+├── skills/memory.md    # the embedded skill's operating protocol
+└── scripts/memory.mjs  # CLI: init/search/touch/lint/status/pack/unpack
 
-记忆库（用户数据，默认 ~/.memory）
-├── SOUL.md       # 人格与灵魂（用户主导）
-├── BOOTSTRAP.md  # 铸魂清单（complete 前优先）
-├── MEMORY.md     # schema 与维护协议（自描述）
-├── index.md      # 页面目录    log.md # 时间线（append-only）
+The store (your data, default ~/.memory)
+├── SOUL.md       # persona and soul (user-owned)
+├── BOOTSTRAP.md  # soul-forging checklist (takes priority until complete)
+├── MEMORY.md     # schema and maintenance protocol (self-describing)
+├── index.md      # page directory    log.md # timeline (append-only)
 ├── identity/ user/ skills/ decisions/ projects/{active,archive}/ concepts/
-└── raw/          # 不可变源材料
+└── raw/          # immutable source material
 ```
 
-## 安装
+## Installation
 
 ```sh
 dsh plugin --profile <profile> add dsh-plugin-memory
 ```
 
-（包内置 `dsh.bundle` manifest，`dsh plugin add` 会把它自动挂进 profile 的 bundles 层；dsh-market 里的一键安装同此通道。）
+(The package ships a `dsh.bundle` manifest, so `dsh plugin add` mounts it into the profile's bundles layer automatically; one-click install from dsh-market uses the same channel.)
 
-重启 profile（DSH Desktop 重启应用）后生效。
+Restart the profile (restart the DSH Desktop app) to take effect.
 
-> 📌 **版本要求：DSH session format v4（官方 DeepSeek Harness 0.1.7+）**
+> 📌 **Version requirement: DSH session format v4 (official DeepSeek Harness 0.1.7+)**
 >
-> 注入消息的 source 使用 producer-owned kind `plugin:memory`。v4 的原生准入明确拒绝 v3 时代的
-> `{ kind: 'plugin', plugin: 'memory' }` wrapper，报
-> `format v4 message requires a producer-owned source kind`（该错误被包成 `code: "UNKNOWN"`，
-> 所以在界面上会显示成 `... source kind UNKNOWN`——`UNKNOWN` 是错误码，不是 kind 值）。
+> Injected messages use the producer-owned source kind `plugin:memory`. v4's native admission explicitly rejects the v3-era `{ kind: 'plugin', plugin: 'memory' }` wrapper with
+> `format v4 message requires a producer-owned source kind` (the error is wrapped as `code: "UNKNOWN"`, so it surfaces in the UI as `... source kind UNKNOWN` — `UNKNOWN` is the error code, not a kind value).
 >
-> v4 与 v3 的白名单**互斥**（v3 只认 `plugin`），因此无法同时兼容两版。
-> **0.8.0 及更早版本在 v4 上会触发该错误**；旧版 DSH 请停留在 0.8.0。
+> The v4 and v3 whitelists are **mutually exclusive** (v3 only recognises `plugin`), so one build cannot support both. **0.8.0 and earlier trigger this error on v4**; older DSH should stay on 0.8.0.
 
-> ⚠️ **不要**再往 profile 的 `cordis.patch.yml` 里手写 `- insert: {id: dsh-memory, ...}`：
-> 那会与 bundle manifest 的自动挂载产生两条同名 entry，整个 profile 会以
-> `duplicate loader entry id "dsh-memory"` 启动失败（2026-08-18 实机事故）。
-> 运行期配置（enabled / memoryDir / autoInject / registerSkill / recallEnabled）改走
-> `<dshHome>/memory.json`（设置面板热改）；composition 配置见下表。
-> 如需覆盖某个 composition 键，用**不带 insert 的 id 覆盖条目**（见配置一节）。
+> ⚠️ Do **not** hand-write `- insert: {id: dsh-memory, ...}` into the profile's `cordis.patch.yml`: that produces two entries with the same name alongside the bundle manifest's automatic mount, and the whole profile fails to start with `duplicate loader entry id "dsh-memory"` (a real incident on 2026-08-18). Runtime settings (enabled / memoryDir / autoInject / registerSkill / recallEnabled) go through `<dshHome>/memory.json` (hot-edited from the settings panel); composition settings are in the table below. To override a composition key, use an **id override entry without `insert`** (see Configuration).
 
-## 配置
+## Configuration
 
-| 键 | 默认值 | 含义 |
+| Key | Default | Meaning |
 |---|---|---|
-| `enabled` | `true` | 总开关：关闭后不注入 boot 块、不注册 `memory` 技能 |
-| `memoryDir` | `~/.memory` | 记忆库绝对路径（`~` 自动展开） |
-| `bootFiles` | `[SOUL.md, MEMORY.md, index.md]` | 开机注入的文件 |
-| `bootMaxChars` | `12000` | boot 块总字符预算（防止占用过多上下文）；按文件分配见下文 |
-| `bootFileBudgets` | — | 逐文件字符上限，例如 `{ index.md: 3500 }`；未列出的文件分剩余额度（composition 层，改完需重启） |
-| `trackPageAccess` | `true` | 会话首条用户消息时，把 boot 块实际注入的页面戳 `last_access`（关闭后衰减表需手动维护） |
-| `autoInject` | `true` | 会话开始时注入 boot 块 |
-| `deferUntilUserSpeaks` | `true` | 用户发出第一条真实消息后才注入（boot 块 / 追忆 / digest 提醒都遵守）；面板可热改 |
-| `activeSessionOnly` | `true` | 只对「当前激活会话」（最近收到用户消息的会话）注入，后台会话不打扰；面板可热改 |
-| `registerSkill` | `true` | 注册内嵌 `memory` 技能 |
-| `scaffold` | `true` | 记忆库缺失时自动创建模板（只建不覆盖） |
-| `configFile` | `<dshHome>/memory.json` | 用户可改配置的 JSON 文件路径（设置面板读写它） |
-| `digestNudgeEnabled` | `true` | 防懒 digest 提醒总开关（composition） |
-| `digestNudgeAfterMinutes` | `120` | 记忆库超过多久未写入就提醒 |
-| `digestNudgeCooldownMinutes` | `180` | 两次提醒的最小间隔 |
-| `digestNudgeMaxPerSession` | `2` | 每个会话最多提醒次数 |
-| `recallEnabled` | `true` | 主动追忆总开关（面板可热改） |
-| `recallIntervalMinMinutes` | `30` | 随机间隔下限（分钟，面板可热改） |
-| `recallIntervalMaxMinutes` | `240` | 随机间隔上限（分钟，面板可热改） |
-| `recallMaxPerSession` | `3` | 每个会话最多追忆次数（面板可热改） |
-| `autoCommit` | `true` | 记忆库 git 自动提交开关（composition） |
-| `autoCommitQuietSeconds` | `60` | 变更静默多久后提交（防抖） |
-| `autoCommitIntervalSeconds` | `60` | 变更轮询间隔 |
+| `enabled` | `true` | Master switch: when off, no boot injection and no `memory` skill registration |
+| `memoryDir` | `~/.memory` | Absolute path to the store (`~` is expanded) |
+| `bootFiles` | `[SOUL.md, MEMORY.md, index.md]` | Files injected at session start |
+| `bootMaxChars` | `12000` | Total character budget for the boot block (keeps context usage bounded); per-file allocation below |
+| `bootFileBudgets` | — | Per-file character caps, e.g. `{ index.md: 3500 }`; unlisted files share the remainder (composition layer, restart required) |
+| `trackPageAccess` | `true` | On the session's first user message, stamp `last_access` on the pages the boot block actually injected (when off, the decay table needs manual upkeep) |
+| `autoInject` | `true` | Inject the boot block at session start |
+| `deferUntilUserSpeaks` | `true` | Inject only after the user's first real message (the boot block, recall and digest reminders all obey it); hot-editable |
+| `activeSessionOnly` | `true` | Inject only into the "currently active session" (the one that most recently received a user message); background sessions are left alone; hot-editable |
+| `registerSkill` | `true` | Register the embedded `memory` skill |
+| `scaffold` | `true` | Create the store templates when missing (create only, never overwrite) |
+| `configFile` | `<dshHome>/memory.json` | Path to the user-editable JSON config (read/written by the settings panel) |
+| `digestNudgeEnabled` | `true` | Master switch for the anti-laziness digest reminder (composition) |
+| `digestNudgeAfterMinutes` | `120` | How long the store may go unwritten before reminding |
+| `digestNudgeCooldownMinutes` | `180` | Minimum gap between two reminders |
+| `digestNudgeMaxPerSession` | `2` | Maximum reminders per session |
+| `recallEnabled` | `true` | Master switch for proactive recall (hot-editable) |
+| `recallIntervalMinMinutes` | `30` | Lower bound of the random interval (minutes, hot-editable) |
+| `recallIntervalMaxMinutes` | `240` | Upper bound of the random interval (minutes, hot-editable) |
+| `recallMaxPerSession` | `3` | Maximum recalls per session (hot-editable) |
+| `autoCommit` | `true` | Git auto-commit switch for the store (composition) |
+| `autoCommitQuietSeconds` | `60` | How long changes must be quiet before committing (debounce) |
+| `autoCommitIntervalSeconds` | `60` | Change polling interval |
 
-### 设置面板（热改）
+### Settings panel (hot edits)
 
-`enabled` / `memoryDir` / `autoInject` / `deferUntilUserSpeaks` / `activeSessionOnly` / `registerSkill` / `recallEnabled` / `recallIntervalMinMinutes` / `recallIntervalMaxMinutes` / `recallMaxPerSession` 十项在 DSH 设置页的「记忆 Memory」区块中可改，**即时生效**：boot 注入、两道礼貌闸门、技能注册、主动追忆（含随机间隔与次数）随修改立即生效；记忆目录切换时自动为新目录初始化脚手架（`scaffold: true` 时）。其余键（`bootFiles` / `bootMaxChars` / `bootFileBudgets` / `trackPageAccess` / `scaffold` / `configFile` / `digestNudge*` / `autoCommit*`）只在 composition 配置层生效，改完需重启。
+Ten settings are editable in the "Memory" section of the DSH settings page and take effect **immediately**: `enabled` / `memoryDir` / `autoInject` / `deferUntilUserSpeaks` / `activeSessionOnly` / `registerSkill` / `recallEnabled` / `recallIntervalMinMinutes` / `recallIntervalMaxMinutes` / `recallMaxPerSession` — boot injection, the two polite gates, skill registration, and proactive recall (including its random interval and cap) all follow the change at once; switching the store directory scaffolds the new one automatically (when `scaffold: true`). The remaining keys (`bootFiles` / `bootMaxChars` / `bootFileBudgets` / `trackPageAccess` / `scaffold` / `configFile` / `digestNudge*` / `autoCommit*`) only apply at the composition layer and need a restart.
 
-### boot 预算分配（为什么 index 不会先被截掉）
+### Boot budget allocation (why the index is not truncated first)
 
-`bootMaxChars` 是总预算，按文件分配而不是简单平摊：
+`bootMaxChars` is a total budget, allocated per file rather than split evenly:
 
-1. 有 `bootFileBudgets` 条目的文件先拿自己的额度；
-2. 其余文件各拿一份均分额度，**以文件实际大小封顶**——短文件把用不完的额度退回池子；
-3. 池子再补给「还有内容没注入」的文件（每个最多补到均分额度的两倍）：**`index.md` 优先**，其余按体积降序——所以截断落在哪个文件上由体积决定，而不是由 `bootFiles` 的书写顺序决定。
+1. Files with a `bootFileBudgets` entry take their own allowance first;
+2. the remaining files each get an equal share, **capped by their real size** — a short file returns its unused allowance to the pool;
+3. the pool then tops up files that still have content left to inject (each up to twice the equal share): **`index.md` first**, then the rest by descending size — so which file gets truncated is decided by size, not by the order in `bootFiles`.
 
-当每个文件都小于均分额度时，结果与旧的平摊规则逐字节相同；只有记忆库长大后才会不同。这也意味着：**`index.md` 是路由表，别把它写成摘要表**——它会被完整注入，膨胀的代价是挤掉人格与其他记忆。
+When every file is under the equal share, the result is byte-for-byte identical to the old even-split rule; it only diverges once the store grows. This also means: **`index.md` is a routing table, not a summary table** — it is injected in full, and bloat costs you the persona and other memories.
 
-> **「当前激活会话」怎么判？** DSH 宿主侧没有「浏览器当前聚焦的会话」信号（激活会话是前端概念）。插件用**最近一次收到真实用户消息的 live root agent**作为激活会话的代理：你在哪个会话里说话，哪个会话就激活；切到别处但不发消息时，宿主感知不到「切换」这个动作（这是代理的已知边界）。若日后需要精确到「展开/聚焦」级别，需补一小段客户端 focus 上报。
+> **How is the "currently active session" decided?** The DSH host has no "currently focused session" signal (active session is a front-end concept). The plugin uses **the live root agent that most recently received a real user message** as a proxy: whichever session you speak in is the active one; switching away without sending a message is invisible to the host (a known limit of the proxy). Exact "expanded/focused" precision would need a small client-side focus report.
 
-### 记忆健康看板
+### Memory health dashboard
 
-设置页「记忆 Memory」区块下方是一张**只读**看板，数据来自 `GET /api/memory/insights`：
+Below the "Memory" section is a **read-only** dashboard fed by `GET /api/memory/insights`:
 
-| 展示 | 含义 |
+| Display | Meaning |
 |---|---|
-| 记忆页 / index 路由 / 记忆字数 | 记忆库规模（字数按字符计，中文不会按字节虚高 3 倍） |
-| 健康分（0–100） | 由孤儿页、缺 `salience`/`type`、陈旧页、失效 index 链接加权得出 |
-| 访问新鲜度条形图 | 今天 / ≤7 / ≤30 / ≤90 / >90 天 / 从未戳记（驱动自 `last_access` 自动戳记） |
-| 四项体检 | index 链接完整、无孤儿页、frontmatter 完整、访问新鲜度——口径与 `dsh-memory lint` 同源 |
-| 陈旧页候选 | 超过 90 天或从未戳记的页面，按陈旧度排序（前 8） |
-| 最近动态 | `log.md` 最新 5 条标题 |
+| pages / index routes / word count | Store size (counted in characters, so Chinese is not inflated 3× by bytes) |
+| Health score (0–100) | Weighted from orphan pages, missing `salience`/`type`, stale pages, and broken index links |
+| Access freshness bars | today / ≤7 / ≤30 / ≤90 / >90 days / never stamped (driven by automatic `last_access` stamping) |
+| Four checks | Index links complete, no orphan pages, frontmatter complete, access freshness — same source as `dsh-memory lint` |
+| Stale candidates | Pages older than 90 days or never stamped, sorted by staleness (top 8) |
+| Recent activity | The 5 newest `log.md` headlines |
 
-看板是**实时**的：每次打开设置页（或改完任一配置项后）重新拉取，不落盘、不缓存、不写记忆库。头less 部署没有 `webServer` 时该路由与看板都不存在，其余功能不受影响。
+The dashboard is **live**: refetched each time the settings page opens (or after any config change), never persisted, cached, or written back to the store. On a headless deployment without `webServer`, that route and the dashboard simply do not exist; everything else is unaffected.
 
-覆盖 composition 键（例如把 boot 块预算调大），在 profile 的 `cordis.patch.yml` 里写**不带 `insert` 的 id 覆盖条目**：
+To override a composition key (for example raising the boot budget), write an **id override entry without `insert`** in the profile's `cordis.patch.yml`:
 
 ```yaml
 - id: dsh-memory
@@ -153,74 +147,74 @@ dsh plugin --profile <profile> add dsh-plugin-memory
     bootMaxChars: 12000
 ```
 
-> 实现说明：DSH 的 settings wire 只服务硬编码的命名空间白名单，插件命名空间写不进去，因此本插件走自建通道——配置存 `<dshHome>/memory.json`（schema 校验 + 原子落盘），由插件自注册的 `GET/POST /api/memory/config` 路由服务，客户端区块 fetch 直连。
+> Implementation note: DSH's settings wire only serves a hard-coded namespace allowlist, so a plugin namespace cannot be written through it. This plugin therefore uses its own channel: config lives in `<dshHome>/memory.json` (schema-validated, atomically written), served by the plugin's self-registered `GET/POST /api/memory/config` routes, which the client section fetches directly.
 
-## 首次使用：铸魂
+## First run: soul-forging
 
-插件安装后，第一次会话里 agent 的首要任务**不是干活**，而是与你对话定义它的灵魂：名字、性格、价值观、语气、边界，以及你的身份与你们的关系。逐项确认并写回 `SOUL.md` / `user/profile.md`，直到 `BOOTSTRAP.md` 的 `status` 变为 `complete`。你可以随时跳过或暂缓。
+After installation, the agent's first task in the first session is **not** to work, but to talk with you about its soul: name, personality, values, tone, boundaries, plus who you are and what you are to each other. Each item is confirmed and written back to `SOUL.md` / `user/profile.md` until `BOOTSTRAP.md`'s `status` becomes `complete`. You can skip or defer at any time.
 
-## 四个操作
+## The four operations
 
-- **remember（记）**：把值得持久化的内容蒸馏成页面，同步更新 `index.md`、追加 `log.md`。维护 index 时守路由表纪律：一行一页、一句话摘要（≤ 80 字）+ `salience`。
-- **recall（忆）**：会话开始读 boot 块；查询时先查 `index.md` 再钻页；必要时 `dsh-memory search <关键词>`。
-- **consolidate（整理）**：`dsh-memory lint` 查矛盾、孤儿页、该归档的冷页；`dsh-memory status` 看陈旧页分布。
-- **forget（忘）**：显式遗忘立即执行；自动衰减按 salience + last_access（冷页优先归档）。`last_access` 由插件自动维护，无需手改。
+- **remember**: distil what is worth persisting into pages, updating `index.md` and appending to `log.md` in the same pass. Keep routing-table discipline when maintaining the index: one line per page, a one-sentence summary (≤ 80 characters) plus `salience`.
+- **recall**: read the boot block at session start; on a query, consult `index.md` first and then drill into pages; use `dsh-memory search <keywords>` when needed.
+- **consolidate**: `dsh-memory lint` finds contradictions, orphans, and cold pages due for archiving; `dsh-memory status` shows the stale-page distribution.
+- **forget**: explicit forgetting happens immediately; automatic decay follows salience + last_access (cold pages are archived first). `last_access` is maintained by the plugin — no manual edits.
 
 ## CLI
 
 ```sh
-dsh-memory init [dir]                 # 创建记忆库脚手架
-dsh-memory search <query> [--touch]   # 全文检索（--touch 给命中页戳 last_access）
-dsh-memory touch [pages...]           # 手动戳 last_access（不带参数 = 全部页面）
-dsh-memory graph --suggest            # 关系报告 + 「这页该连谁」建议（只报告）
-dsh-memory query --type decision --tag dsh --hot --stale [关键词]
-                                      # 结构化检索：先按 frontmatter 过滤，再匹配正文
-dsh-memory checkup [--boot=N]         # 一份报告：体量/新鲜度/连接度/一致性 + 优先级行动清单
-dsh-memory lint                       # 完整性体检
-dsh-memory status                     # 健康概览（含陈旧页统计）
-dsh-memory pack [out.tar.gz]          # 打包导出（含 manifest）
-dsh-memory unpack <archive> [--force] # 从归档恢复
+dsh-memory init [dir]                 # create the store scaffold
+dsh-memory search <query> [--touch]   # full-text search (--touch stamps hits with last_access)
+dsh-memory touch [pages...]           # stamp last_access manually (no args = every page)
+dsh-memory graph --suggest            # relationship report + "who should this page link to" (report only)
+dsh-memory query --type decision --tag dsh --hot --stale [keywords]
+                                      # structured query: filter by frontmatter, then match the body
+dsh-memory checkup [--boot=N]         # one report: size/freshness/connectivity/consistency + prioritised actions
+dsh-memory lint                       # integrity check
+dsh-memory status                     # health overview (including stale-page counts)
+dsh-memory pack [out.tar.gz]          # export an archive (with manifest)
+dsh-memory unpack <archive> [--force] # restore from an archive
 ```
 
-存储定位顺序：`$MEMORY_DIR` → `./.memory`（存在时）→ `~/.memory`。
+Store resolution order: `$MEMORY_DIR` → `./.memory` (when present) → `~/.memory`.
 
-## 迁移
+## Migration
 
-记忆库是纯 markdown + git：拷贝即迁移。跨机器 / 跨 agent / 能力降级档位见 [docs/MIGRATION.md](docs/MIGRATION.md)。
+The store is plain markdown + git: copying it *is* the migration. Cross-machine, cross-agent, and capability-degradation tiers are covered in [docs/MIGRATION.md](docs/MIGRATION.md).
 
-## 常见问题
+## FAQ
 
-**Q：和手写的 `.dsh/skills/memory` 文件技能（skill 版）什么关系？**
-skill 版是"软保障"（技能目录只注入简介，正文靠模型主动加载）；本插件是"硬保障"（boot 块随系统提示词运行时上下文自动注入）。两者可共存：文件技能（rank 100）会覆盖插件内嵌技能（rank 250）的协议。如果你之前为了软保障改过系统提示词 persona（如 profile 补丁里的开机指令），装上本插件后建议**移除那段 persona**，避免双份注入。
+**Q: How does this relate to a hand-written `.dsh/skills/memory` file skill?**
+The file skill is a *soft* guarantee (only the skill's blurb is injected; the body depends on the model choosing to load it). This plugin is a *hard* guarantee (the boot block rides the system prompt's runtime context automatically). They can coexist: the file skill (rank 100) overrides the plugin's embedded skill (rank 250). If you previously edited the system prompt persona (say a boot instruction in a profile patch) to get the soft guarantee, **remove that persona** after installing this plugin to avoid double injection.
 
-**Q：boot 块会不会每次请求都重复注入、烧 token？**
-不会。运行时上下文按投影去重：内容不变只注入一次；记忆更新后新快照取代旧快照。
+**Q: Does the boot block get re-injected on every request and burn tokens?**
+No. Runtime context is deduplicated by projection: an unchanged payload is injected once, and an updated memory replaces the old snapshot.
 
-**Q：记忆库放在哪里最合适？**
-默认 `~/.memory`（全局、跨项目）。需要按项目隔离时，把 `memoryDir` 配到项目内，或让 agent 在项目里维护 `.memory/`。
+**Q: Where should the store live?**
+`~/.memory` by default (global, cross-project). For per-project isolation, point `memoryDir` inside the project, or let the agent maintain `.memory/` there.
 
-**Q：可以加密吗？**
-记忆含敏感内容时，可把 `memoryDir` 放进加密卷 / 私有仓库。格式不变，插件无感知。
+**Q: Can it be encrypted?**
+If the memory holds sensitive content, put `memoryDir` on an encrypted volume or in a private repository. The format is unchanged and the plugin is unaware.
 
-## 开发
+## Development
 
 ```sh
 git clone https://github.com/LittleBlackTong/dsh-plugin-memory.git
 cd dsh-plugin-memory
-node scripts/memory.mjs --self-test   # 冒烟测试（无需安装依赖）
+node scripts/memory.mjs --self-test   # smoke test (no dependencies to install)
 ```
 
-零构建：`lib/` 直接是运行时代码，`lib/types/index.d.ts` 供 TS 消费方使用。`boot.js` / `scaffold.js` 只依赖 `node:*` 内置模块，可独立复用。
+Zero build: `lib/` is runtime code as-is, and `lib/types/index.d.ts` serves TypeScript consumers. `boot.js` / `scaffold.js` depend only on `node:*` built-ins and can be reused standalone.
 
-## 路线图
+## Roadmap
 
-- [ ] TypeScript 重写（带完整类型与构建步骤）
-- [ ] embedding/BM25 检索（规模超过几百页后替代 index 先行）
-- [ ] MCP server（让非 DSH 的 agent 也能用同一套记忆库）
-- [ ] GitHub Actions CI（跑 `--self-test` 与 lint）
-- [ ] 记忆加密存储选项
+- [ ] TypeScript rewrite (full types and a build step)
+- [ ] Embedding/BM25 retrieval (replacing index-first lookup past a few hundred pages)
+- [ ] MCP server (so non-DSH agents can use the same store)
+- [ ] GitHub Actions CI (running `--self-test` and lint)
+- [ ] Encrypted memory storage option
 
-欢迎在 [Issues](https://github.com/LittleBlackTong/dsh-plugin-memory/issues) 里提需求、报 bug、交 PR。
+Requests, bug reports, and pull requests are welcome in [Issues](https://github.com/LittleBlackTong/dsh-plugin-memory/issues).
 
 ## License
 

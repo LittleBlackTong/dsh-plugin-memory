@@ -2,6 +2,19 @@
 
 所有记录跟随 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/) 风格；版本号与 `package.json` 保持一致。
 
+## [0.9.4] - 2026-10-15
+
+### Added（中英双语 README）
+
+- **`README.md` 改为英文**，**新增 `README.zh.md` 中文版**，两边标题下互挂语言切换（`**English** ｜ [中文](README.zh.md)` / `**中文** ｜ [English](README.md)`）。
+  - 取舍说明：npm 与 GitHub 默认渲染 `README.md`，而 npm 是国际渠道，所以**英文放主位**；中文完整版放 `README.zh.md`，内容与结构逐节对齐（Features / Architecture / Installation / Configuration / First run / Operations / CLI / Migration / FAQ / Development / Roadmap / License），不是摘要。
+  - `package.json` 的 `files` 白名单加入 `README.zh.md`，因此 **npm 包内同时带中英两份**（打包预演：`README.md` 24.7 kB + `README.zh.md` 22.4 kB，共 30 files）。
+  - 原有的 "English TL;DR" 段落被完整英文版取代。
+
+### Tests
+
+- 全量 **177/177 通过**；`npm test`（self-test: init / pack / unpack）通过。本次为纯文档改动，无代码变更。
+
 ## [0.9.3] - 2026-10-08
 
 ### Fixed（主动追忆「显示已完成但没有任何内容」）
