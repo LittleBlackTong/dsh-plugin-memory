@@ -2,6 +2,32 @@
 
 所有记录跟随 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/) 风格；版本号与 `package.json` 保持一致。
 
+## [0.10.0] - 2026-10-16
+
+### Added
+
+- **`dsh-memory doctor` — 环境体检，一条命令定位"感觉哪里不对"**。检查的是**实际会坏的那些东西**，每条结论后面直接跟修复命令：
+  | 检查项 | 说明 |
+  |---|---|
+  | 目录可写 | 用**真实写入探针**判断（不看 mode 位——ACL 下会骗人） |
+  | 脚手架 | `SOUL.md` / `MEMORY.md` / `index.md` / `log.md` / `BOOTSTRAP.md` 是否齐全 |
+  | 页面 / 孤儿页 | 存在但没进 `index.md` 的页面，附 `index --write` |
+  | index 死链 | `index.md` 指向但不存在的页（**硬失败**） |
+  | git 状态 | 是否仓库 / 未提交数 / **领先远端多少提交未 push** |
+  | boot 预算 | `SOUL+MEMORY+index` 实际字符数 vs 默认 12000（标注"实际以插件配置为准"） |
+  | 陈旧度 | 复用 `accessSummary`，与 `status` 同源 |
+
+  **退出码**：有硬失败 → 1（可当 CI 闸门）；只有提醒 → 0。
+  - **实测立刻见效**：在真实记忆库上首跑就报出「**领先远端 57 个提交**」——正是下面那条建议所指的问题；同时报出 boot 预算已用到 **10729/12000（89%）**。
+
+- **README 增加「快速上手 / Quickstart」**（中英双语），放在 Features 之前：三步（装 → 重启说句话看铸魂 → `doctor` 或设置页确认），不必先啃完 20 条特性。两个 README 的 CLI 章节也补上了 `doctor`。
+
+### Tests
+
+- `test/cli.test.mjs` 新增 4 条（先 RED 后实现）：报告脚手架/页面数/git 状态；缺文件时报 `✗` 且不崩；有孤儿页时指向修复命令；`doctor` 出现在 help 里。
+- 全量 **181/181 通过**（0.9.4 时 177）；`npm test` self-test 通过。
+- 过程中一条测试写错并已修正：`execFileSync` 在非零退出码时抛异常，断言要从 `error.stdout` 取输出——**是测试写法问题，不是 doctor 的缺陷**。
+
 ## [0.9.4] - 2026-10-15
 
 ### Added（中英双语 README）

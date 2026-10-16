@@ -67,3 +67,66 @@ test('query filters on frontmatter instead of guessing keywords', () => {
     rmSync(dir, { recursive: true, force: true })
   }
 })
+
+// ── doctor (2026-10-16) ────────────────────────────────────────────────────
+//
+// `doctor` is the one command you run when something feels off: it checks the
+// things that actually break in practice (missing scaffold, orphan pages, git
+// state, boot budget) and ends with the command that fixes each finding.
+// These tests pin the contract, not the wording of every line.
+
+test('doctor reports the scaffold, the page count and the git state', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'memory-doctor-'))
+  try {
+    run(['init', dir])
+    const out = run(['doctor'], { store: dir })
+    assert.match(out, /记忆库/, 'must name the store it inspected')
+    assert.match(out, /脚手架/, 'must check the scaffold files')
+    assert.match(out, /页面/, 'must count pages')
+    assert.match(out, /git/i, 'must report git state even when there is no repo')
+  } finally {
+    rmSync(dir, { recursive: true, force: true })
+  }
+})
+
+test('doctor flags a missing scaffold file instead of crashing', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'memory-doctor-broken-'))
+  try {
+    run(['init', dir])
+    rmSync(join(dir, 'index.md'))
+    // A missing scaffold is a hard failure, so doctor exits 1 — execFileSync
+    // throws on a non-zero status, and the report we want to assert on rides
+    // along on the error object.
+    let out
+    try {
+      out = run(['doctor'], { store: dir })
+    } catch (error) {
+      out = `${error.stdout ?? ''}${error.stderr ?? ''}`
+    }
+    assert.match(out, /index\.md/, 'must name the missing file')
+    assert.match(out, /[✗×]/, 'must mark it as a failure rather than a warning')
+  } finally {
+    rmSync(dir, { recursive: true, force: true })
+  }
+})
+
+test('doctor points at the fixing command when pages are missing from the index', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'memory-doctor-orphan-'))
+  try {
+    run(['init', dir])
+    writeFileSync(join(dir, 'user', 'orphan.md'), [
+      '---', 'title: 孤儿', 'date: 2026-01-01', 'type: user', 'salience: 2',
+      'last_access: 2026-01-01', 'tags: [user]', 'sources: []', '---', '', '正文', '',
+    ].join('\n'), 'utf8')
+    const out = run(['doctor'], { store: dir })
+    assert.match(out, /孤儿|orphan/, 'must report orphans')
+    assert.match(out, /dsh-memory index/, 'must name the command that repairs the index')
+  } finally {
+    rmSync(dir, { recursive: true, force: true })
+  }
+})
+
+test('doctor appears in the CLI help', () => {
+  const out = run([])
+  assert.match(out, /doctor/, 'the new subcommand must be discoverable')
+})

@@ -13,6 +13,21 @@
 
 **English TL;DR** — A Cordis plugin for [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) that gives agents a persistent, cross-session, migratable long-term memory: a markdown + git store (inspired by Karpathy's *LLM Wiki* pattern) with a `SOUL.md` persona file, **auto-injected at every session start** via the system-prompt runtime context, plus remember / recall / consolidate / forget workflows and portable CLI tooling.
 
+## 快速上手
+
+三步，大约五分钟：
+
+```sh
+# 1. 安装
+dsh plugin --profile <profile> add dsh-plugin-memory
+```
+
+2. **重启应用**，开个会话随便说句话。boot 块会自动加载——因为记忆库还没有灵魂，agent 会**主动开始「铸魂」对话**：它叫什么名字、怎么称呼你、你们是什么关系、该是什么性格。答多答少都行，它会逐项写回去。
+
+3. **确认生效**。`dsh-memory doctor` 做一次环境体检（脚手架 / 孤儿页 / git 状态 / boot 预算），最后给出修复每一条的命令。或者打开**设置 → 记忆**看健康看板，选项都能热改。
+
+之后就很简单了：你干活时 agent 顺手把记忆写回去；你随时能手动整理记忆库——纯 markdown + git，没有任何锁死的东西。
+
 ## 特性
 
 - **开机强制注入（带路由表保护）**：插件通过 `ctx.systemPrompt.context()` 把记忆 boot 块（`SOUL.md` 人格 + `MEMORY.md` 协议 + `index.md` 目录 + 最近动态）注入会话上下文。宿主按投影去重：记忆不变就不重复注入，变化时新快照自动取代旧的——这是"新会话必先加载记忆"的**硬保障**，不需要模型碰运气调技能。总预算是 `bootMaxChars`，**按文件分配**：每个文件先拿一份均分（受实际大小封顶），剩余额度优先给 `index.md`、再给尚有内容未注入的文件——所以记忆库长大时，目录的尾部不会先被截掉（详见「boot 预算分配」）。默认还带**两道礼貌闸门**：`deferUntilUserSpeaks`（用户开口后才注入）与 `activeSessionOnly`（只注入当前激活会话），见「配置」。
@@ -179,6 +194,7 @@ dsh-memory query --type decision --tag dsh --hot --stale [关键词]
                                       # 结构化检索：先按 frontmatter 过滤，再匹配正文
 dsh-memory checkup [--boot=N]         # 一份报告：体量/新鲜度/连接度/一致性 + 优先级行动清单
 dsh-memory lint                       # 完整性体检
+dsh-memory doctor                     # 环境体检：脚手架 / 孤儿页 / git / boot 预算，并给出修复命令
 dsh-memory status                     # 健康概览（含陈旧页统计）
 dsh-memory pack [out.tar.gz]          # 打包导出（含 manifest）
 dsh-memory unpack <archive> [--force] # 从归档恢复

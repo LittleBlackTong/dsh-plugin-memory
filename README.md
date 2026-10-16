@@ -13,6 +13,21 @@
 
 A Cordis plugin for [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) that gives agents persistent, cross-session, migratable long-term memory: a markdown + git store (inspired by Karpathy's *LLM Wiki* pattern) with a `SOUL.md` persona file, **auto-injected at every session start** through the system-prompt runtime context, plus remember / recall / consolidate / forget workflows and portable CLI tooling.
 
+## Quickstart
+
+Three steps, about five minutes:
+
+```sh
+# 1. install
+dsh plugin --profile <profile> add dsh-plugin-memory
+```
+
+2. **Restart the app**, open a session and say anything. The boot block loads automatically — and because the store has no soul yet, the agent **starts the soul-forging conversation by itself**: what its name is, how to address you, what you are to each other, what personality it should have. Answer as much or as little as you like; each answer is written back.
+
+3. **Confirm it took.** `dsh-memory doctor` gives an environment check-up (scaffold, orphan pages, git state, boot budget) and ends with the command that fixes each finding. Or open **Settings → Memory** for the health dashboard and hot-editable options.
+
+After that the loop is simple: the agent writes memories back as you work, and you can steer the store by hand whenever you like — it is plain markdown plus git, nothing locked in.
+
 ## Features
 
 - **Mandatory boot injection (with routing-table protection)**: the plugin injects a memory boot block (`SOUL.md` persona + `MEMORY.md` protocol + `index.md` directory + recent activity) into the session context via `ctx.systemPrompt.context()`. The host deduplicates by projection: an unchanged memory is injected once, and a changed memory replaces the previous snapshot — this is the **hard guarantee** that a new session always loads memory first, rather than hoping the model calls a skill. The total budget is `bootMaxChars`, **allocated per file**: every file first gets an equal share (capped by its real size), and the remaining budget goes to `index.md` first, then to files that still have content left — so as the store grows, the tail of the directory is not the first thing to be truncated (see "boot budget allocation"). Two polite gates ship enabled by default: `deferUntilUserSpeaks` (inject only after the user speaks) and `activeSessionOnly` (inject only into the currently active session) — see "Configuration".
@@ -171,6 +186,7 @@ dsh-memory query --type decision --tag dsh --hot --stale [keywords]
                                       # structured query: filter by frontmatter, then match the body
 dsh-memory checkup [--boot=N]         # one report: size/freshness/connectivity/consistency + prioritised actions
 dsh-memory lint                       # integrity check
+dsh-memory doctor                     # environment check-up + the command that fixes each finding
 dsh-memory status                     # health overview (including stale-page counts)
 dsh-memory pack [out.tar.gz]          # export an archive (with manifest)
 dsh-memory unpack <archive> [--force] # restore from an archive

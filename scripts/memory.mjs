@@ -361,6 +361,151 @@ function cmdStatus(store) {
   console.log(`oldest last_access: ${oldest}`)
 }
 
+/**
+ * `doctor` — the command to run when something feels off.
+ *
+ * It checks what actually breaks in practice — the scaffold, orphan pages,
+ * dead index links, git state, boot budget, staleness — and ends with the
+ * command that repairs each finding. Any hard failure exits 1; warnings
+ * alone keep the exit at 0, so `doctor` can gate a CI step.
+ */
+function cmdDoctor(store) {
+  const failures = []
+  const warnings = []
+  const fixes = []
+  const row = (mark, text) => console.log(`  ${mark} ${text}`)
+
+  console.log('dsh-memory doctor')
+  console.log(`记忆库：${store}`)
+  console.log('')
+
+  if (!existsSync(store)) {
+    row('✗', '目录不存在')
+    console.log('\n建议：')
+    console.log(`  dsh-memory init ${store}`)
+    process.exit(1)
+  }
+
+  // 1. writability — probe with a real write, because mode bits lie under ACLs
+  let writable = true
+  const probe = join(store, '.doctor-probe')
+  try {
+    writeFileSync(probe, '')
+    rmSync(probe)
+  } catch {
+    writable = false
+  }
+  row(writable ? '✓' : '✗', `目录可写${writable ? '' : '（写不进去，插件无法维护记忆库）'}`)
+  if (!writable) {
+    failures.push('目录不可写')
+    fixes.push(`chmod u+w "${store}"`)
+  }
+
+  // 2. scaffold
+  const REQUIRED = ['SOUL.md', 'MEMORY.md', 'index.md', 'log.md', 'BOOTSTRAP.md']
+  const missing = REQUIRED.filter((f) => !existsSync(join(store, f)))
+  if (missing.length === 0) {
+    row('✓', '脚手架完整（SOUL / MEMORY / index / log / BOOTSTRAP）')
+  } else {
+    row('✗', `脚手架缺文件：${missing.join(' / ')}`)
+    failures.push('脚手架不完整')
+    fixes.push('dsh-memory init — 只补缺失的模板，不覆盖已有内容')
+  }
+
+  // 3. pages, orphans and dead links
+  const all = pages(store)
+  const indexPath = join(store, 'index.md')
+  const indexText = existsSync(indexPath) ? readFileSync(indexPath, 'utf8') : ''
+  const linked = [...indexText.matchAll(/\]\(([^)]+\.md)\)/g)]
+    .map((m) => m[1])
+    .filter((p) => !p.startsWith('http'))
+    .map((p) => p.replace(/^\.\//, ''))
+  const inIndex = new Set(linked)
+  const orphans = all.filter((p) => !inIndex.has(p))
+  row('✓', `页面 ${all.length} 个，index 覆盖 ${linked.length} 条`)
+  if (orphans.length > 0) {
+    row('⚠', `孤儿页 ${orphans.length} 个（存在于记忆库但不在 index.md 里）`)
+    warnings.push(`${orphans.length} 个孤儿页`)
+    fixes.push('dsh-memory index --write — 把声明了 summary: 的页面写回索引行')
+  }
+  const dead = linked.filter((p) => !existsSync(join(store, p)))
+  if (dead.length > 0) {
+    row('✗', `index 里 ${dead.length} 条死链：${dead.slice(0, 3).join(', ')}${dead.length > 3 ? ' …' : ''}`)
+    failures.push('index 有死链')
+    fixes.push('dsh-memory lint — 列出全部死链后手工修')
+  }
+
+  // 4. git — the store is worth versioning, and autoCommit silently no-ops without a repo
+  if (!existsSync(join(store, '.git'))) {
+    row('⚠', '不是 git 仓库（没有版本历史，插件的 autoCommit 会跳过）')
+    warnings.push('无 git 仓库')
+    fixes.push(`git -C "${store}" init && git -C "${store}" add -A && git -C "${store}" commit -m "init"`)
+  } else {
+    const git = (...a) => execFileSync('git', a, {
+      cwd: store, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'],
+    }).trim()
+    let branch = ''
+    let dirty = 0
+    let ahead = 0
+    let hasRemote = false
+    try {
+      branch = git('rev-parse', '--abbrev-ref', 'HEAD')
+      dirty = git('status', '--porcelain').split('\n').filter(Boolean).length
+      hasRemote = git('remote').length > 0
+      if (hasRemote) {
+        const counts = git('rev-list', '--count', '--left-right', '@{upstream}...HEAD').split(/\s+/)
+        ahead = Number(counts[1] ?? 0)
+      }
+    } catch {
+      // an empty repo or a missing upstream lands here; the rows below cover both
+    }
+    row('✓', `git 仓库（分支 ${branch || '(尚无提交)'}${hasRemote ? '' : '，未配远端'}）`)
+    if (dirty > 0) {
+      row('⚠', `${dirty} 个文件未提交（autoCommit 静默后会自行提交）`)
+      warnings.push(`${dirty} 个未提交文件`)
+    }
+    if (hasRemote && ahead > 0) {
+      row('⚠', `领先远端 ${ahead} 个提交（本地有历史没推上去）`)
+      warnings.push(`${ahead} 个提交未推送`)
+      fixes.push(`git -C "${store}" push — 记忆插件只 auto-commit，从不 auto-push`)
+    }
+  }
+
+  // 5. boot budget — best effort: the CLI cannot see the plugin's composition config
+  const BOOT_FILES = ['SOUL.md', 'MEMORY.md', 'index.md']
+  const DEFAULT_BUDGET = 12000
+  const bootChars = BOOT_FILES.reduce((n, f) => {
+    const p = join(store, f)
+    return n + (existsSync(p) ? readFileSync(p, 'utf8').length : 0)
+  }, 0)
+  const pct = Math.round((bootChars / DEFAULT_BUDGET) * 100)
+  row(pct > 100 ? '⚠' : '✓', `boot 预算 ${bootChars} / ${DEFAULT_BUDGET} 字符（${pct}%；按默认值算，实际以插件配置为准）`)
+  if (pct > 100) {
+    warnings.push('boot 预算超出默认值')
+    fixes.push('dsh-memory checkup --boot=12000 — 看该裁哪个文件')
+  }
+
+  // 6. staleness, reusing the same source as `status`
+  const access = accessSummary(store)
+  if (access.total > 0 && access.stale.length > 0) {
+    row('⚠', `陈旧页 ${access.stale.length}/${access.total}（>90 天或从未戳记）`)
+    warnings.push(`${access.stale.length} 个陈旧页`)
+  }
+
+  console.log('')
+  if (failures.length === 0 && warnings.length === 0) {
+    console.log('一切正常 ✅')
+    process.exit(0)
+  }
+  if (fixes.length > 0) {
+    console.log('建议：')
+    for (const f of fixes) console.log(`  - ${f}`)
+    console.log('')
+  }
+  console.log(`结论：${failures.length} 项失败，${warnings.length} 项提醒`)
+  process.exit(failures.length > 0 ? 1 : 0)
+}
+
 function manifestFor(storePath) {
   const files = walk(storePath).sort().map((f) => ({
     path: relative(storePath, f),
@@ -467,6 +612,7 @@ if (args[0] === '--self-test') {
   index [--check|--write|--sync-frontmatter]
                            index routing table: report drift / rewrite / import summaries
   lint                     integrity check
+  doctor                   environment check-up: scaffold, orphans, git, boot budget + fixes
   status                   health summary
   pack [out.tar.gz]        export portable archive + manifest
   unpack <archive> [--force]  restore archive
@@ -480,6 +626,7 @@ Store: $MEMORY_DIR or ./.memory or ~/.memory (current: ${store})`
     case 'query': cmdQuery(store, args.slice(1)); break
     case 'index': cmdIndex(store, args.slice(1)); break
     case 'lint': cmdLint(store); break
+    case 'doctor': cmdDoctor(store); break
     case 'status': cmdStatus(store); break
     case 'pack': cmdPack(store, args[1]); break
     case 'unpack': cmdUnpack(store, args[1], args.includes('--force')); break
