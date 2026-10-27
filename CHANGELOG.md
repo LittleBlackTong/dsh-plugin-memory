@@ -2,6 +2,18 @@
 
 所有记录跟随 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/) 风格；版本号与 `package.json` 保持一致。
 
+## [Unreleased]
+
+### Added
+
+- **工作区白名单 `workspaces` / `workspaceExclude`** — 让记忆只在指定的工作目录下生效。多开 DSH（比如一个工作区跑机器人、另一个办公）时，不用再让所有会话共享同一份记忆。
+  - 判定统一走 `isWorkspaceAllowed(cwd, workspaces, workspaceExclude)`，覆盖四处：boot 注入、digest 提醒、追忆提醒、`last_access` 盖章
+  - `workspaces` 为空 = 不限制（保持原有行为，向后兼容）；按**路径边界**匹配（`~/dafeiyu` 覆盖 `~/dafeiyu/qq-bridge`，不覆盖 `~/dafeiyu2`）；`~` 自动展开
+  - `workspaceExclude` 先判且优先于白名单
+  - 两项都在设置面板「记忆 Memory」里可热改，改完立即生效
+- 抽出 `lib/workspace-allowlist.js`：纯路径逻辑、不依赖 `@deepseek-ai/schemastery` 等宿主包，因此可以在裸仓库里直接用 `node --test` 跑
+- 新增 `test/workspace-allowlist.test.mjs`（9 个用例：空名单、边界匹配、`~` 展开、排除优先、缺失 cwd、脏数据容忍）
+
 ## [0.10.0] - 2026-10-16
 
 ### Added

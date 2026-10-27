@@ -116,6 +116,8 @@ dsh plugin --profile <profile> add dsh-plugin-memory
 | `autoInject` | `true` | 会话开始时注入 boot 块 |
 | `deferUntilUserSpeaks` | `true` | 用户发出第一条真实消息后才注入（boot 块 / 追忆 / digest 提醒都遵守）；面板可热改 |
 | `activeSessionOnly` | `true` | 只对「当前激活会话」（最近收到用户消息的会话）注入，后台会话不打扰；面板可热改 |
+| `workspaces` | `[]` | 工作区白名单（按会话 cwd 判定）：非空时只有落在这些根目录内的会话才读写记忆（boot 块、digest / 追忆提醒、`last_access` 盖章）。`~` 会自动展开，按路径边界匹配；面板可热改 |
+| `workspaceExclude` | `[]` | 即使位于白名单目录内也排除的子目录（先判、优先于白名单）；面板可热改 |
 | `registerSkill` | `true` | 注册内嵌 `memory` 技能 |
 | `scaffold` | `true` | 记忆库缺失时自动创建模板（只建不覆盖） |
 | `configFile` | `<dshHome>/memory.json` | 用户可改配置的 JSON 文件路径（设置面板读写它） |
@@ -133,7 +135,7 @@ dsh plugin --profile <profile> add dsh-plugin-memory
 
 ### 设置面板（热改）
 
-`enabled` / `memoryDir` / `autoInject` / `deferUntilUserSpeaks` / `activeSessionOnly` / `registerSkill` / `recallEnabled` / `recallIntervalMinMinutes` / `recallIntervalMaxMinutes` / `recallMaxPerSession` 十项在 DSH 设置页的「记忆 Memory」区块中可改，**即时生效**：boot 注入、两道礼貌闸门、技能注册、主动追忆（含随机间隔与次数）随修改立即生效；记忆目录切换时自动为新目录初始化脚手架（`scaffold: true` 时）。其余键（`bootFiles` / `bootMaxChars` / `bootFileBudgets` / `trackPageAccess` / `scaffold` / `configFile` / `digestNudge*` / `autoCommit*`）只在 composition 配置层生效，改完需重启。
+`enabled` / `memoryDir` / `autoInject` / `deferUntilUserSpeaks` / `activeSessionOnly` / `registerSkill` / `recallEnabled` / `recallIntervalMinMinutes` / `recallIntervalMaxMinutes` / `recallMaxPerSession` / `workspaces` / `workspaceExclude` 十二项在 DSH 设置页的「记忆 Memory」区块中可改，**即时生效**：boot 注入、两道礼貌闸门、技能注册、主动追忆（含随机间隔与次数）随修改立即生效；记忆目录切换时自动为新目录初始化脚手架（`scaffold: true` 时）。其余键（`bootFiles` / `bootMaxChars` / `bootFileBudgets` / `trackPageAccess` / `scaffold` / `configFile` / `digestNudge*` / `autoCommit*`）只在 composition 配置层生效，改完需重启。
 
 ### boot 预算分配（为什么 index 不会先被截掉）
 

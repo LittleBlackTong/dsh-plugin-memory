@@ -108,6 +108,8 @@ Restart the profile (restart the DSH Desktop app) to take effect.
 | `autoInject` | `true` | Inject the boot block at session start |
 | `deferUntilUserSpeaks` | `true` | Inject only after the user's first real message (the boot block, recall and digest reminders all obey it); hot-editable |
 | `activeSessionOnly` | `true` | Inject only into the "currently active session" (the one that most recently received a user message); background sessions are left alone; hot-editable |
+| `workspaces` | `[]` | Workspace allowlist keyed on the session cwd: when non-empty, only sessions whose cwd falls inside one of these roots get memory (boot block, digest/recall nudges, `last_access` stamping). `~` is expanded; entries match on path boundaries; hot-editable |
+| `workspaceExclude` | `[]` | Roots excluded even when they sit under an allowlisted workspace (checked first, wins over the allowlist); hot-editable |
 | `registerSkill` | `true` | Register the embedded `memory` skill |
 | `scaffold` | `true` | Create the store templates when missing (create only, never overwrite) |
 | `configFile` | `<dshHome>/memory.json` | Path to the user-editable JSON config (read/written by the settings panel) |
@@ -125,7 +127,7 @@ Restart the profile (restart the DSH Desktop app) to take effect.
 
 ### Settings panel (hot edits)
 
-Ten settings are editable in the "Memory" section of the DSH settings page and take effect **immediately**: `enabled` / `memoryDir` / `autoInject` / `deferUntilUserSpeaks` / `activeSessionOnly` / `registerSkill` / `recallEnabled` / `recallIntervalMinMinutes` / `recallIntervalMaxMinutes` / `recallMaxPerSession` — boot injection, the two polite gates, skill registration, and proactive recall (including its random interval and cap) all follow the change at once; switching the store directory scaffolds the new one automatically (when `scaffold: true`). The remaining keys (`bootFiles` / `bootMaxChars` / `bootFileBudgets` / `trackPageAccess` / `scaffold` / `configFile` / `digestNudge*` / `autoCommit*`) only apply at the composition layer and need a restart.
+Twelve settings are editable in the "Memory" section of the DSH settings page and take effect **immediately**: `enabled` / `memoryDir` / `autoInject` / `deferUntilUserSpeaks` / `activeSessionOnly` / `registerSkill` / `recallEnabled` / `recallIntervalMinMinutes` / `recallIntervalMaxMinutes` / `recallMaxPerSession` / `workspaces` / `workspaceExclude` — boot injection, the two polite gates, skill registration, proactive recall (including its random interval and cap) all follow the change at once; switching the store directory scaffolds the new one automatically (when `scaffold: true`). The remaining keys (`bootFiles` / `bootMaxChars` / `bootFileBudgets` / `trackPageAccess` / `scaffold` / `configFile` / `digestNudge*` / `autoCommit*`) only apply at the composition layer and need a restart.
 
 ### Boot budget allocation (why the index is not truncated first)
 

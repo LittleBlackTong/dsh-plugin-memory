@@ -57,6 +57,16 @@ export interface MemoryConfig {
   recallIntervalMaxMinutes?: number
   /** Max recall nudges per session. Default `3`. */
   recallMaxPerSession?: number
+  /**
+   * Workspace allowlist keyed on the session cwd. When non-empty, only
+   * sessions whose cwd falls inside one of these roots touch the store
+   * (boot injection, digest/recall nudges, `last_access` stamping).
+   * `~` is expanded; entries match on path boundaries. Empty = every
+   * workspace (the historical behaviour). Default `[]`.
+   */
+  workspaces?: string[]
+  /** Roots excluded even when they sit under an allowlisted workspace; checked first. Default `[]`. */
+  workspaceExclude?: string[]
   /** Auto-commit the store's git history after a quiet period. Default `true`. */
   autoCommit?: boolean
   /** Seconds of quiet before an auto-commit. Default `60`. */
@@ -86,6 +96,8 @@ export interface MemorySettings {
   recallIntervalMinMinutes?: number
   recallIntervalMaxMinutes?: number
   recallMaxPerSession?: number
+  workspaces?: string[]
+  workspaceExclude?: string[]
 }
 
 /** Schemastery schema for {@link MemorySettings}. */
@@ -105,6 +117,12 @@ export function defaultConfigPath(): string
 
 /** Expand `~` and resolve `dir` to an absolute path. */
 export function resolveMemoryDir(dir: string): string
+
+/**
+ * Does a session cwd fall inside the configured workspace allowlist?
+ * Empty allowlist = no restriction; `workspaceExclude` wins.
+ */
+export function isWorkspaceAllowed(cwd: string | undefined, workspaces: string[], workspaceExclude: string[]): boolean
 
 /** Callable Cordis plugin entry plus metadata consumed by the DSH loader. */
 export interface MemoryPlugin {
