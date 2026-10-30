@@ -11,6 +11,8 @@
 
 > A long-term memory plugin for DeepSeek Harness: a cross-session, portable, markdown memory store that comes with a soul.
 
+> Together, let's bring the complete *Blue Big Fat Fish* (蓝色大肥鱼) to life — sooner rather than later.
+
 A Cordis plugin for [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) that gives agents persistent, cross-session, migratable long-term memory: a markdown + git store (inspired by Karpathy's *LLM Wiki* pattern) with a `SOUL.md` persona file, **auto-injected at every session start** through the system-prompt runtime context, plus remember / recall / consolidate / forget workflows and portable CLI tooling.
 
 ## Quickstart

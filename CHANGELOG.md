@@ -2,6 +2,16 @@
 
 所有记录跟随 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/) 风格；版本号与 `package.json` 保持一致。
 
+## [0.10.1] - 2026-10-30
+
+### Changed（文档）
+
+- **中英 README 各加一句口号**：英文 `> Together, let's bring the complete *Blue Big Fat Fish* (蓝色大肥鱼) to life — sooner rather than later.`；中文 `> 让我们一起早日实现完整的「蓝色大肥鱼」。` 纯文档改动，不改任何行为或配置。
+
+### Tests
+
+- `node --test` 全量通过、`npm test`（memory self-test）通过——文档改动不影响测试。
+
 ## [0.10.0] - 2026-10-16
 
 ### Added
