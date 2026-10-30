@@ -1,0 +1,56 @@
+name: CI
+
+# Zero-build plugin: the checked-out sources are the runtime code, so CI only
+# needs Node.js — there is no compile step and no lockfile to restore.
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+# A newer push to the same branch supersedes the previous run.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: test (node ${{ matrix.node }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        node: [20, 22]
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js ${{ matrix.node }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+
+      # This repository intentionally ships no lockfile (a zero-build plugin
+      # whose runtime dependencies are host-provided peers). npm 7+ installs the
+      # peer packages too, which the tests import.
+      - name: Install dependencies
+        run: npm install --no-package-lock --no-audit --no-fund
+
+      - name: Validate package.json
+        run: node -e "JSON.parse(require('fs').readFileSync('package.json', 'utf8'))"
+
+      - name: Run the test suite
+        run: node --test
+
+      # The CLI is shipped as `bin` and is the maintainers' end-to-end smoke
+      # test: a temp-directory scaffold → write → pack → unpack round trip.
+      - name: Run the CLI self-test
+        run: node scripts/memory.mjs --self-test
+
+      - name: Verify the npm package contents
+        run: npm pack --dry-run
+
+      - name: Check for whitespace errors
+        run: git diff --check

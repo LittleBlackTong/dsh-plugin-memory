@@ -2,6 +2,24 @@
 
 所有记录跟随 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/) 风格；版本号与 `package.json` 保持一致。
 
+## [0.13.0] - 2026-10-30
+
+### Added（兼容声明 + 立即回顾 + 可访问性 + 工程化）
+
+- **`engines.dsh` 兼容声明**：`package.json` 声明 `engines.dsh: "^0.2.1-rc.5"`——宿主引擎闸门用 semver（`includePrerelease: true`）校验，注意 `^0.2.1` / `>=0.2.0` 匹配不上 prerelease，必须写 `^0.2.1-rc.5`；旧宿主会被闸门拦住，而不是让插件半残运行。运行期缺失投影仍优雅降级（不发回顾/不抢发言权，绝不崩）。
+- **「立即回顾」按钮 + 控制路由**：新增 `POST /api/memory/control`，action `growth-now` → 立即触发一次成长回顾。语义：尊重发言权仲裁；本周没有新内容就不发；**不受 `recallEnabled` 关闭影响**（显式手动操作），但要求插件启用、agent idle、成长回顾本身开启。响应 `{ ok, delivered, reason }`（`no-content` / `deferred` / `disabled` / `busy` / `growth-disabled` / `no-session` 等）；非 POST → 405，未知 action / 坏 JSON → 400。面板按钮带「回顾中 / 已发送 / 另一插件正在说话 / 没有新内容 / 已关闭 / 失败」六态反馈。
+- **面板可访问性**：按钮与表单补 `aria-label`，状态用 `role="status"`、错误用 `role="alert"`，键盘焦点加 `:focus-visible` 焦点环。
+- **工程化**：`.github/workflows/ci.yml`（跑 `node --test` + `--self-test`）、Issue / PR 模板、`CONTRIBUTING.md`、`SECURITY.md`、`docs/PROACTIVE-PROTOCOL.md`（跨插件共享发言协议 v1 的公开说明；`docs/**` 在 `files` 内，因此该文档随 npm 包发布）。
+
+### Changed
+
+- 面板控制逻辑把 `recallEnabled` 与「手动立即回顾」解耦：关闭自动追忆不再等于禁用用户显式发起的回顾。
+
+### Tests
+
+- 新增 `test/control-route.test.mjs`、`test/growth-now.test.mjs`；`client-i18n` 补按钮文案与 a11y 契约。
+- 全量单测 **255/255 通过**（0.12.0 基线 242，新增 13 条）；`node scripts/memory.mjs --self-test` PASS。
+
 ## [0.12.0] - 2026-10-30
 
 ### Added（A 仲裁 + B 语气漂移 + C 表达层 + D 每周成长回顾）

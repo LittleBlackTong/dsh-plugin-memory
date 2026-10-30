@@ -545,3 +545,30 @@ test('type labels translate known types and keep unknown ones verbatim', () => {
   }
   assert.equal(seam.typeLabel('meta', en), 'meta', 'a type we do not know is not invented')
 })
+
+// ── 7. v0.13.0: manual growth recap button + panel accessibility ───────────
+
+test('v0.13.0 the panel offers a manual growth recap with a status line', () => {
+  const config = { enabled: true, memoryDir: '/tmp/memory', growthRecapEnabled: true }
+  const { moduleExports } = browserHarness({ state: [config, 'ready', undefined, false, false, undefined] })
+  const texts = collectText(moduleExports.__test.MemoryForm({}))
+  assert.ok(texts.includes('立即回顾'), 'the button label is rendered')
+  assert.ok(texts.includes('手动触发一次成长回顾（尊重发言权仲裁；没有新内容时不发）'), 'the hint is rendered')
+  const button = findElement(moduleExports.__test.MemoryForm({}), (node) => node.type === 'button' && node.props?.['aria-label'] === '立即回顾')
+  assert.ok(button !== undefined, 'the button carries an aria-label')
+})
+
+test('v0.13.0 panel controls are keyboard/label accessible and talk to the control route', () => {
+  assert.ok(CLIENT_SOURCE.includes("const CONTROL_URL = '/api/memory/control'"), 'the panel posts to the control route')
+  assert.ok(CLIENT_SOURCE.includes("'aria-label': label"), 'inputs/toggles/selects expose a label')
+  assert.ok(CLIENT_SOURCE.includes("role: 'alert'"), 'errors are announced')
+  assert.ok(CLIENT_SOURCE.includes("role: 'status'"), 'the recap result is announced')
+  assert.ok(CLIENT_SOURCE.includes(':focus-visible'), 'keyboard focus has a visible outline')
+  // The new copy is translated in both languages and referenced (no dead keys).
+  const { DICTS } = browserHarness().moduleExports.__test
+  for (const key of ['growthNow', 'growthNowHint', 'growthNowRunning', 'growthNowOk', 'growthNowDeferred', 'growthNowEmpty', 'growthNowDisabled', 'growthNowFailed']) {
+    assert.equal(typeof DICTS.zh[key], 'string', `zh.${key}`)
+    assert.equal(typeof DICTS.en[key], 'string', `en.${key}`)
+    assert.ok(CLIENT_SOURCE.includes(`t('${key}')`), `${key} is actually used`)
+  }
+})

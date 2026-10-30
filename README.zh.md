@@ -4,6 +4,7 @@
 
 <p align="center">
   <a href="https://github.com/LittleBlackTong/dsh-plugin-memory"><img alt="GitHub" src="https://img.shields.io/badge/GitHub-LittleBlackTong%2Fdsh--plugin--memory-blue?logo=github"></a>
+  <a href="https://github.com/LittleBlackTong/dsh-plugin-memory/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/LittleBlackTong/dsh-plugin-memory/actions/workflows/ci.yml/badge.svg"></a>
   <a href="https://www.npmjs.com/package/dsh-plugin-memory"><img alt="npm" src="https://img.shields.io/npm/v/dsh-plugin-memory?logo=npm"></a>
   <img alt="license" src="https://img.shields.io/badge/license-MIT-blue">
   <img alt="node" src="https://img.shields.io/badge/node-%3E%3D18-green">
@@ -97,7 +98,7 @@ dsh plugin --profile <profile> add dsh-plugin-memory
 
 重启 profile（DSH Desktop 重启应用）后生效。
 
-> 📌 **版本要求：DSH session format v4（官方 DeepSeek Harness 0.1.7+）**
+> 📌 **版本要求：DSH session format v4 + 官方 DeepSeek Harness 0.2.1-rc.5 系列**（0.13.x 已声明 `engines.dsh`；旧宿主会被闸门拒绝，见[兼容性](#兼容性)）
 >
 > 注入消息的 source 使用 producer-owned kind `plugin:memory`。v4 的原生准入明确拒绝 v3 时代的
 > `{ kind: 'plugin', plugin: 'memory' }` wrapper，报
@@ -151,9 +152,15 @@ dsh plugin --profile <profile> add dsh-plugin-memory
 
 `enabled` / `memoryDir` / `autoInject` / `deferUntilUserSpeaks` / `activeSessionOnly` / `registerSkill` / `recallEnabled` / `recallIntervalMinMinutes` / `recallIntervalMaxMinutes` / `recallMaxPerSession` / `proactiveCooldownSeconds` / `toneGuideEnabled` / `toneIntensity` / `growthRecapEnabled` / `growthRecapIntervalDays` 十五项在 DSH 设置页的「记忆 / Memory」区块中可改（跟随语言），**即时生效**：boot 注入、两道礼貌闸门、技能注册、主动追忆（含随机间隔与次数）、发言权仲裁、语气段与每周成长回顾随修改立即生效；记忆目录切换时自动为新目录初始化脚手架（`scaffold: true` 时）。其余键（`bootFiles` / `bootMaxChars` / `bootFileBudgets` / `trackPageAccess` / `scaffold` / `configFile` / `digestNudge*` / `autoCommit*`）只在 composition 配置层生效，改完需重启。
 
+旁边还有一个 **「立即回顾」按钮**：它是**控制动作，不是配置项**——让插件立刻发一次成长回顾。仍尊重发言权仲裁（别的插件在说话就让位）、本周没有新内容就不发、即使 `recallEnabled` 关闭也能用，并在面板里给出结果（回顾中 / 已发送 / 让位 / 没有新内容 / 已关闭 / 失败）。
+
 ### 语言 / Language
 
 设置面板与侧栏 label 跟随 DSH 自己的语言设置（**设置 → 通用设置 → 语言**），切换即时生效、无需重启：中文显示「记忆」，英文显示 "Memory"。面板文案通过 `ctx.locale` 注册在 `memory` 命名空间，renderer 会给区块注入 `t(key)` 座位，于是表单、健康看板、图谱卡片整体重渲染为当前语言；侧栏图标的认领键取自同一个 label 解析函数，语言切换后自动重新认领正确的那一行。健康看板的四项体检 **label 与 detail** 由 insights 路由新增的结构化 `data` 在客户端按语言重建（`lib/insights.js` 仍保留中文 `label`/`detail` 供 CLI 使用）；旧版本宿主 payload 没有 `data` 时回退中文串。用户内容（页面标题、`log.md` 动态）与 CLI 自身的中文输出属于内容而非界面文案，不在翻译范围内。
+
+### 兼容性
+
+`package.json` 声明 `engines.dsh: "^0.2.1-rc.5"`，宿主用 `semver.satisfies(..., { includePrerelease: true })` 强制校验——prerelease 细节很关键：`^0.2.1` / `>=0.2.0` **匹配不上** `0.2.1-rc.5`，只有显式写 prerelease range 才认（它同时覆盖将来的 0.2.1 正式版）。一路走来有两个宿主服务变成「承重」的：`locale` 服务（0.11+：面板通过它注册语言包）与会话投影（0.12+：发言权仲裁与成长回顾要读）。旧宿主会被闸门直接拒绝加载，而不是让插件半残运行；运行期缺投影则优雅降级——不发回顾、不抢发言权，绝不崩。
 
 ### boot 预算分配（为什么 index 不会先被截掉）
 
@@ -249,6 +256,8 @@ node scripts/memory.mjs --self-test   # 冒烟测试（无需安装依赖）
 ```
 
 零构建：`lib/` 直接是运行时代码，`lib/types/index.d.ts` 供 TS 消费方使用。`boot.js` / `scaffold.js` 只依赖 `node:*` 内置模块，可独立复用。
+
+测试用 `node --test`，当前共 **255 个用例**；CI（`.github/workflows/ci.yml`）会连同 `node scripts/memory.mjs --self-test` 一起跑。贡献与安全策略见 [CONTRIBUTING.md](CONTRIBUTING.md)、[SECURITY.md](SECURITY.md)；跨插件发言协议见 [docs/PROACTIVE-PROTOCOL.md](docs/PROACTIVE-PROTOCOL.md)。
 
 ## 路线图
 

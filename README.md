@@ -4,6 +4,7 @@
 
 <p align="center">
   <a href="https://github.com/LittleBlackTong/dsh-plugin-memory"><img alt="GitHub" src="https://img.shields.io/badge/GitHub-LittleBlackTong%2Fdsh--plugin--memory-blue?logo=github"></a>
+  <a href="https://github.com/LittleBlackTong/dsh-plugin-memory/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/LittleBlackTong/dsh-plugin-memory/actions/workflows/ci.yml/badge.svg"></a>
   <a href="https://www.npmjs.com/package/dsh-plugin-memory"><img alt="npm" src="https://img.shields.io/npm/v/dsh-plugin-memory?logo=npm"></a>
   <img alt="license" src="https://img.shields.io/badge/license-MIT-blue">
   <img alt="node" src="https://img.shields.io/badge/node-%3E%3D18-green">
@@ -97,7 +98,7 @@ dsh plugin --profile <profile> add dsh-plugin-memory
 
 Restart the profile (restart the DSH Desktop app) to take effect.
 
-> 📌 **Version requirement: DSH session format v4 (official DeepSeek Harness 0.1.7+)**
+> 📌 **Version requirement: DSH session format v4 + official DeepSeek Harness 0.2.1-rc.5 series** (0.13.x declares `engines.dsh`; older hosts are refused by the gate — see [Compatibility](#compatibility))
 >
 > Injected messages use the producer-owned source kind `plugin:memory`. v4's native admission explicitly rejects the v3-era `{ kind: 'plugin', plugin: 'memory' }` wrapper with
 > `format v4 message requires a producer-owned source kind` (the error is wrapped as `code: "UNKNOWN"`, so it surfaces in the UI as `... source kind UNKNOWN` — `UNKNOWN` is the error code, not a kind value).
@@ -145,9 +146,15 @@ The section is registered as **"Memory"** in the English UI and **「记忆」**
 
 Fifteen settings are editable in the "Memory" section of the DSH settings page and take effect **immediately**: `enabled` / `memoryDir` / `autoInject` / `deferUntilUserSpeaks` / `activeSessionOnly` / `registerSkill` / `recallEnabled` / `recallIntervalMinMinutes` / `recallIntervalMaxMinutes` / `recallMaxPerSession` / `proactiveCooldownSeconds` / `toneGuideEnabled` / `toneIntensity` / `growthRecapEnabled` / `growthRecapIntervalDays` — boot injection, the two polite gates, skill registration, proactive recall (including its random interval and cap), speech-right arbitration, the tone section and the weekly growth recap all follow the change at once; switching the store directory scaffolds the new one automatically (when `scaffold: true`). The remaining keys (`bootFiles` / `bootMaxChars` / `bootFileBudgets` / `trackPageAccess` / `scaffold` / `configFile` / `digestNudge*` / `autoCommit*`) only apply at the composition layer and need a restart.
 
+A **Review now** button sits beside them: it is a **control, not a setting** — it asks the plugin to send one growth recap immediately. It still respects the speech floor (it backs off if the other plugin is speaking), sends nothing when this week has no new material, works even while `recallEnabled` is off, and reports the outcome in the panel (sending / sent / deferred / no content / disabled / failed).
+
 ### Language
 
 The settings panel and its sidebar label follow DSH's own language setting (**Settings → General → Language**) and switch live — no restart: Chinese shows 「记忆」, English shows "Memory". Panel copy is registered as the `memory` locale namespace through `ctx.locale`, so the renderer re-renders the whole panel (form, health dashboard, graph card) in the active language and injects a `t(key)` seat into the section. The sidebar icon claim key is derived from that same label, so a language switch re-claims the right row. The dashboard's health-check labels **and details** are rebuilt client-side from locale-neutral `data` the insights route ships (`lib/insights.js` keeps the Chinese `label`/`detail` strings for the CLI); an older host payload without `data` falls back to those Chinese strings. User content (page titles, `log.md` headlines) and the CLI's own Chinese output are content, not UI copy, and stay as-is.
+
+### Compatibility
+
+`package.json` declares `engines.dsh: "^0.2.1-rc.5"`, and the host enforces it with `semver.satisfies(..., { includePrerelease: true })` — the prerelease detail matters: `^0.2.1` or `>=0.2.0` do **not** match `0.2.1-rc.5`, so only the explicit prerelease range works (it also covers the eventual 0.2.1 stable). Two host services became load-bearing on the way here: the `locale` service (0.11+: the panel registers its dictionaries through it) and session projections (0.12+: speech arbitration and the growth recap read them). On an older host the gate refuses to load the plugin instead of letting it run half-broken; at runtime a missing projection still degrades gracefully — no recap, no speech-floor claim, never a crash.
 
 ### Boot budget allocation (why the index is not truncated first)
 
@@ -243,6 +250,8 @@ node scripts/memory.mjs --self-test   # smoke test (no dependencies to install)
 ```
 
 Zero build: `lib/` is runtime code as-is, and `lib/types/index.d.ts` serves TypeScript consumers. `boot.js` / `scaffold.js` depend only on `node:*` built-ins and can be reused standalone.
+
+The test suite (`node --test`) currently holds **255 tests**, and CI (`.github/workflows/ci.yml`) runs it together with `node scripts/memory.mjs --self-test`. Contribution and security policies live in [CONTRIBUTING.md](CONTRIBUTING.md) and [SECURITY.md](SECURITY.md); the cross-plugin speech-floor protocol is documented in [docs/PROACTIVE-PROTOCOL.md](docs/PROACTIVE-PROTOCOL.md).
 
 ## Roadmap
 
