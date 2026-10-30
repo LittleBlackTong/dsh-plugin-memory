@@ -2,6 +2,26 @@
 
 所有记录跟随 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/) 风格；版本号与 `package.json` 保持一致。
 
+## [0.13.2] - 2026-10-30
+
+### Fixed（reviewer 复核尾巴 + 结构修正）
+
+- **「立即回顾」no-session / error 使用独立文案**：`no-session` → 新增「没有活跃会话可回顾」（`growthNowNoSession`）；`error` / `agent-gone` / `disposed` → 新增「回顾失败」（`growthNowError`，**不带悬空冒号**）；网络错误仍拼接 `growthNowFailed`（保留冒号并附具体错误）。
+- **焦点环 marker 上移到面板外层 + 恢复三卡独立错误隔离**：`data-dsh-memory-panel` 从表单根 div 移到 `MemorySection` 外层（包住表单 + 健康卡 + 图谱卡），`:focus-visible` 规则真正覆盖整块面板；同时修正 reviewer 指出的 `SectionBoundary` 嵌套——表单 / 健康卡 / 图谱卡仍是三个独立边界，一张卡出错不会带崩整块面板。
+- **结果提示 5 秒自动清除**（补齐 busy / no-session / error 三条新分支同样遵循）。
+- **手动回顾后的节律与投递目标**：手动回顾成功会把自动追忆节律前移（不会紧接着再发一条）；多 root 会话时按 `tracker.isActive` 优先投递当前活跃会话。
+- **类型声明**：`types/index.d.ts` 补 `CONTROL_ROUTE_PATH` / `GRAPH_ROUTE_PATH` 常量。
+- **README**：两语言嵌入真实设置面板截图 `assets/settings-panel.png`（含「立即回顾」按钮；`assets/` 不在 `files` 字段，不影响 npm 包体）。
+
+### Notes
+
+- **手动「立即回顾」有意绕过每会话追忆上限**（用户显式操作）；但插件启用、agent idle、成长回顾开启、有内容、发言权仲裁仍然全部生效。
+
+### Tests
+
+- `client-i18n` 新增 2 条：no-session / error 独立文案与去冒号、面板 marker 覆盖范围。
+- 全量单测 **260/260 通过**（0.13.1 基线 258，新增 2 条）；`node scripts/memory.mjs --self-test` PASS。
+
 ## [0.13.1] - 2026-10-30
 
 ### Fixed（面板可用性四连）

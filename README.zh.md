@@ -154,6 +154,8 @@ dsh plugin --profile <profile> add dsh-plugin-memory
 
 旁边还有一个 **「立即回顾」按钮**：它是**控制动作，不是配置项**——让插件立刻发一次成长回顾。仍尊重发言权仲裁（别的插件在说话就让位）、本周没有新内容就不发、即使 `recallEnabled` 关闭也能用，并在面板里给出结果（回顾中 / 已发送 / 让位 / 会话正忙 / 没有新内容 / 已关闭 / 失败），结果提示 5 秒后自动消失。
 
+![记忆设置面板](assets/settings-panel.png)
+
 ### 语言 / Language
 
 设置面板与侧栏 label 跟随 DSH 自己的语言设置（**设置 → 通用设置 → 语言**），切换即时生效、无需重启：中文显示「记忆」，英文显示 "Memory"。面板文案通过 `ctx.locale` 注册在 `memory` 命名空间，renderer 会给区块注入 `t(key)` 座位，于是表单、健康看板、图谱卡片整体重渲染为当前语言；侧栏图标的认领键取自同一个 label 解析函数，语言切换后自动重新认领正确的那一行。健康看板的四项体检 **label 与 detail** 由 insights 路由新增的结构化 `data` 在客户端按语言重建（`lib/insights.js` 仍保留中文 `label`/`detail` 供 CLI 使用）；旧版本宿主 payload 没有 `data` 时回退中文串。用户内容（页面标题、`log.md` 动态）与 CLI 自身的中文输出属于内容而非界面文案，不在翻译范围内。
@@ -257,7 +259,7 @@ node scripts/memory.mjs --self-test   # 冒烟测试（无需安装依赖）
 
 零构建：`lib/` 直接是运行时代码，`lib/types/index.d.ts` 供 TS 消费方使用。`boot.js` / `scaffold.js` 只依赖 `node:*` 内置模块，可独立复用。
 
-测试用 `node --test`，当前共 **258 个用例**；CI（`.github/workflows/ci.yml`）会连同 `node scripts/memory.mjs --self-test` 一起跑。贡献与安全策略见 [CONTRIBUTING.md](CONTRIBUTING.md)、[SECURITY.md](SECURITY.md)；跨插件发言协议见 [docs/PROACTIVE-PROTOCOL.md](docs/PROACTIVE-PROTOCOL.md)。
+测试用 `node --test`，当前共 **260 个用例**；CI（`.github/workflows/ci.yml`）会连同 `node scripts/memory.mjs --self-test` 一起跑。贡献与安全策略见 [CONTRIBUTING.md](CONTRIBUTING.md)、[SECURITY.md](SECURITY.md)；跨插件发言协议见 [docs/PROACTIVE-PROTOCOL.md](docs/PROACTIVE-PROTOCOL.md)。
 
 ## 路线图
 

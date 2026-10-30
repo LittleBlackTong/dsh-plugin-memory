@@ -616,3 +616,35 @@ test('v0.13.1 result copy maps the host reasons and auto-clears', () => {
   assert.ok(CLIENT_SOURCE.includes("reason === 'no-content'"), 'no-content maps to the empty-copy branch')
   assert.ok(CLIENT_SOURCE.includes('setGrowthNotice(undefined), 5000'), 'the notice clears after ~5s')
 })
+
+// ── 9. v0.13.1: no-session/error copy + panel marker scope ────────────────
+
+test('v0.13.1 no-session and error results read as their own sentences', () => {
+  const { DICTS } = browserHarness().moduleExports.__test
+  assert.equal(typeof DICTS.zh.growthNowNoSession, 'string')
+  assert.equal(typeof DICTS.en.growthNowNoSession, 'string')
+  assert.equal(typeof DICTS.zh.growthNowError, 'string')
+  assert.ok(!DICTS.zh.growthNowError.endsWith('：'), 'the standalone error line has no dangling colon')
+  assert.ok(!DICTS.en.growthNowError.endsWith(':'), 'the standalone error line has no dangling colon')
+  assert.ok(DICTS.zh.growthNowFailed.endsWith('：'), 'the concatenated network error keeps its colon')
+  assert.ok(CLIENT_SOURCE.includes("reason === 'no-session'"), 'no-session maps to its own copy')
+  assert.ok(CLIENT_SOURCE.includes("t('growthNowError')"), 'error/agent-gone use the standalone copy')
+})
+
+test('v0.13.1 the panel marker wraps the config form and the two cards', () => {
+  const { moduleExports } = browserHarness({ state: [{}, 'ready', undefined, false, false, undefined] })
+  const tree = moduleExports.__test.MemorySection({})
+  // The marker must sit on MemorySection's own wrapper so the health/graph
+  // cards share the focus-ring scope (the form root is not the whole panel).
+  let markerDepth = -1
+  const walk = (node, depth) => {
+    if (node === null || node === undefined || typeof node !== 'object') return
+    if (Array.isArray(node)) { for (const child of node) walk(child, depth); return }
+    if (typeof node.type === 'function' && node.type.prototype?.isReactComponent !== true) { walk(node.type(node.props), depth); return }
+    if (node.props?.['data-dsh-memory-panel'] !== undefined) markerDepth = depth
+    for (const child of node.children ?? []) walk(child, depth + 1)
+  }
+  walk(tree, 0)
+  assert.ok(markerDepth >= 0, 'the panel marker is rendered')
+  assert.ok(markerDepth <= 3, `marker should wrap the section, saw depth ${markerDepth}`)
+})

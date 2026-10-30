@@ -148,6 +148,8 @@ Fifteen settings are editable in the "Memory" section of the DSH settings page a
 
 A **Review now** button sits beside them: it is a **control, not a setting** — it asks the plugin to send one growth recap immediately. It still respects the speech floor (it backs off if the other plugin is speaking), sends nothing when this week has no new material, works even while `recallEnabled` is off, and reports the outcome in the panel (sending / sent / deferred / session busy / no content / disabled / failed) — the result notice clears itself after 5 seconds.
 
+![Memory settings panel](assets/settings-panel.png)
+
 ### Language
 
 The settings panel and its sidebar label follow DSH's own language setting (**Settings → General → Language**) and switch live — no restart: Chinese shows 「记忆」, English shows "Memory". Panel copy is registered as the `memory` locale namespace through `ctx.locale`, so the renderer re-renders the whole panel (form, health dashboard, graph card) in the active language and injects a `t(key)` seat into the section. The sidebar icon claim key is derived from that same label, so a language switch re-claims the right row. The dashboard's health-check labels **and details** are rebuilt client-side from locale-neutral `data` the insights route ships (`lib/insights.js` keeps the Chinese `label`/`detail` strings for the CLI); an older host payload without `data` falls back to those Chinese strings. User content (page titles, `log.md` headlines) and the CLI's own Chinese output are content, not UI copy, and stay as-is.
@@ -251,7 +253,7 @@ node scripts/memory.mjs --self-test   # smoke test (no dependencies to install)
 
 Zero build: `lib/` is runtime code as-is, and `lib/types/index.d.ts` serves TypeScript consumers. `boot.js` / `scaffold.js` depend only on `node:*` built-ins and can be reused standalone.
 
-The test suite (`node --test`) currently holds **258 tests**, and CI (`.github/workflows/ci.yml`) runs it together with `node scripts/memory.mjs --self-test`. Contribution and security policies live in [CONTRIBUTING.md](CONTRIBUTING.md) and [SECURITY.md](SECURITY.md); the cross-plugin speech-floor protocol is documented in [docs/PROACTIVE-PROTOCOL.md](docs/PROACTIVE-PROTOCOL.md).
+The test suite (`node --test`) currently holds **260 tests**, and CI (`.github/workflows/ci.yml`) runs it together with `node scripts/memory.mjs --self-test`. Contribution and security policies live in [CONTRIBUTING.md](CONTRIBUTING.md) and [SECURITY.md](SECURITY.md); the cross-plugin speech-floor protocol is documented in [docs/PROACTIVE-PROTOCOL.md](docs/PROACTIVE-PROTOCOL.md).
 
 ## Roadmap
 
