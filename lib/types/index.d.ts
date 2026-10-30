@@ -57,6 +57,20 @@ export interface MemoryConfig {
   recallIntervalMaxMinutes?: number
   /** Max recall nudges per session. Default `3`. */
   recallMaxPerSession?: number
+  /**
+   * Shared proactive-speech cooldown (seconds) with dsh-plugin-heartbeat,
+   * via `<dshHome>/proactive-cooldown.json`. `0` turns arbitration off.
+   * Default `180`.
+   */
+  proactiveCooldownSeconds?: number
+  /** Inject the context-sensitive tone section after SOUL. Default `true`. */
+  toneGuideEnabled?: boolean
+  /** Tone intensity: `low` (default) / `medium` / `off` (pure engineering voice). */
+  toneIntensity?: 'low' | 'medium' | 'off'
+  /** Deliver a weekly first-person growth recap on the recall channel. Default `true`. */
+  growthRecapEnabled?: boolean
+  /** Days between growth recaps. Default `7`. */
+  growthRecapIntervalDays?: number
   /** Auto-commit the store's git history after a quiet period. Default `true`. */
   autoCommit?: boolean
   /** Seconds of quiet before an auto-commit. Default `60`. */
@@ -86,6 +100,11 @@ export interface MemorySettings {
   recallIntervalMinMinutes?: number
   recallIntervalMaxMinutes?: number
   recallMaxPerSession?: number
+  proactiveCooldownSeconds?: number
+  toneGuideEnabled?: boolean
+  toneIntensity?: 'low' | 'medium' | 'off'
+  growthRecapEnabled?: boolean
+  growthRecapIntervalDays?: number
 }
 
 /** Schemastery schema for {@link MemorySettings}. */
@@ -229,3 +248,28 @@ export function collectInsights(memoryDir: string): MemoryInsights
 
 /** Newest-first `log.md` headlines for the dashboard. */
 export function readRecentLog(memoryDir: string, count?: number): string[]
+
+/** Render the tone section injected after SOUL ('' when intensity is off). */
+export function buildToneGuide(options?: {
+  intensity?: 'low' | 'medium' | 'off'
+  language?: 'zh' | 'en'
+}): string
+
+/** Shared proactive-speech cooldown values. */
+export const TONE_INTENSITIES: ReadonlyArray<'low' | 'medium' | 'off'>
+
+/** Claim the shared proactive-speech lock (see lib/proactive-lock.js). */
+export function claimProactiveLock(options?: {
+  path?: string
+  speaker?: string
+  cooldownSeconds?: number
+  now?: number
+}): { ok: true; disabled?: true } | { ok: false; deferredBy: string }
+
+/** Read the shared proactive-speech lock, or undefined when missing/corrupt. */
+export function readProactiveLock(path: string):
+  | { version: number; speaker: string; at: number }
+  | undefined
+
+/** Default lock path: `${DSH_HOME||~/.dsh}/proactive-cooldown.json`. */
+export function defaultProactiveCooldownPath(): string

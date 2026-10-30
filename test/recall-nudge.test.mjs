@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict'
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import test from 'node:test'
@@ -49,7 +49,7 @@ function makeStore(withLog = true) {
   return dir
 }
 
-function makeNudge(agent, dir, overrides = {}, tracker) {
+function makeNudge(agent, dir, overrides = {}, tracker, extra = {}) {
   const config = {
     enabled: true,
     minMinutes: 0,
@@ -61,6 +61,7 @@ function makeNudge(agent, dir, overrides = {}, tracker) {
     readConfig: () => config,
     getMemoryDir: () => dir,
     tracker,
+    ...extra,
   })
 }
 
@@ -287,4 +288,207 @@ test('randomIntervalMs stays within [min, max] and clamps max < min', () => {
   }
   // max < min clamps to min
   assert.equal(randomIntervalMs(20, 5), 20 * 60000)
+})
+
+// ── A. 发言权仲裁（v0.12.0）─────────────────────────────────────────────────
+//
+// 与 heartbeat 共享 ~/.dsh/proactive-cooldown.json：注入前先 claim，被拒则本次
+// 跳过、不消耗追忆节奏（下次触发再试）。测试用注入的 claimLock 桩，协议本身
+// 在 test/proactive-lock.test.mjs 里单测。
+
+test('a refused claim skips this recall without consuming the cadence', () => {
+  const agent = makeAgent()
+  const dir = makeStore()
+  const tracker = makeSpokenTracker(agent)
+  const claims = []
+  const results = [{ ok: false, deferredBy: 'heartbeat' }, { ok: true }]
+  const nudge = makeNudge(agent, dir, {}, tracker, {
+    claimLock: (options) => {
+      claims.push(options)
+      return results.shift() ?? { ok: false, deferredBy: 'heartbeat' }
+    },
+  })
+  nudge.start()
+  agent.emitTurnStopped() // arm
+  agent.emitTurnStopped() // claim refused → skip, cadence untouched
+  assert.equal(agent.followups.length, 0)
+  assert.equal(claims.length, 1)
+  assert.equal(claims[0].cooldownSeconds, 180, 'the configured cooldown is handed to the lock')
+  agent.emitTurnStopped() // next trigger retries and succeeds
+  assert.equal(agent.followups.length, 1)
+  assert.ok(agent.followups[0].id.startsWith('memory-recall-'))
+  assert.equal(claims.length, 2)
+  nudge.dispose()
+  rmSync(dir, { recursive: true, force: true })
+})
+
+test('the claim receives proactiveCooldownSeconds, including the 0 = off escape hatch', () => {
+  const agent = makeAgent()
+  const dir = makeStore()
+  const tracker = makeSpokenTracker(agent)
+  const seen = []
+  const nudge = makeNudge(agent, dir, { proactiveCooldownSeconds: 0 }, tracker, {
+    claimLock: (options) => { seen.push(options.cooldownSeconds); return { ok: true } },
+  })
+  nudge.start()
+  agent.emitTurnStopped()
+  agent.emitTurnStopped()
+  assert.equal(agent.followups.length, 1)
+  assert.deepEqual(seen, [0])
+  nudge.dispose()
+  rmSync(dir, { recursive: true, force: true })
+})
+
+test('a throwing claimLock never blocks the recall (arbitration is best-effort)', () => {
+  const agent = makeAgent()
+  const dir = makeStore()
+  const tracker = makeSpokenTracker(agent)
+  const nudge = makeNudge(agent, dir, {}, tracker, {
+    claimLock: () => { throw new Error('lock file broken') },
+  })
+  nudge.start()
+  agent.emitTurnStopped()
+  agent.emitTurnStopped()
+  assert.equal(agent.followups.length, 1, 'a broken lock must not silence the memory plugin')
+  nudge.dispose()
+  rmSync(dir, { recursive: true, force: true })
+})
+
+// ── D. 成长回顾（v0.12.0）───────────────────────────────────────────────────
+//
+// 成长回顾复用同一个追忆通道：到期 → 发成长回顾；不到期 → 走原追忆逻辑。
+// 状态文件 <store>/.growth-recap.json 记录 lastAt。
+
+function todayStamp() {
+  const date = new Date()
+  const pad = (n) => String(n).padStart(2, '0')
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`
+}
+
+/** Store with one log entry dated today, so a growth recap has material. */
+function makeGrowthStore() {
+  const dir = makeStore(false)
+  writeFileSync(join(dir, 'log.md'), `## [${todayStamp()}] release | 成长测试条目\n`, 'utf8')
+  return dir
+}
+
+function growthExtras(overrides = {}, claimLock) {
+  return {
+    readGrowthConfig: () => ({ enabled: true, intervalDays: 7, language: 'zh', ...overrides }),
+    claimLock: claimLock ?? (() => ({ ok: true })),
+  }
+}
+
+test('growth recap fires instead of recall when the week is due', () => {
+  const agent = makeAgent()
+  const dir = makeGrowthStore()
+  const tracker = makeSpokenTracker(agent)
+  const nudge = makeNudge(agent, dir, {}, tracker, growthExtras())
+  nudge.start()
+  agent.emitTurnStopped() // arm
+  agent.emitTurnStopped() // growth due → recap, not recall
+  assert.equal(agent.followups.length, 1)
+  const message = agent.followups[0]
+  assert.ok(message.id.startsWith('memory-growth-'))
+  assert.ok(message.content[0].text.includes('成长回顾'))
+  assert.ok(message.content[0].text.includes('成长测试条目'))
+  assert.deepEqual(message.source, { kind: 'plugin:memory' })
+  const state = JSON.parse(readFileSync(join(dir, '.growth-recap.json'), 'utf8'))
+  assert.ok(Math.abs(state.lastAt - Date.now()) < 60_000, 'delivery time is persisted')
+  nudge.dispose()
+  rmSync(dir, { recursive: true, force: true })
+})
+
+test('growth recap is not repeated inside the interval: recall takes over', () => {
+  const agent = makeAgent()
+  const dir = makeGrowthStore()
+  writeFileSync(join(dir, '.growth-recap.json'), JSON.stringify({ version: 1, lastAt: Date.now() }), 'utf8')
+  const tracker = makeSpokenTracker(agent)
+  const nudge = makeNudge(agent, dir, {}, tracker, growthExtras())
+  nudge.start()
+  agent.emitTurnStopped()
+  agent.emitTurnStopped()
+  assert.equal(agent.followups.length, 1)
+  assert.ok(agent.followups[0].id.startsWith('memory-recall-'), 'normal recall resumes when the recap is not due')
+  nudge.dispose()
+  rmSync(dir, { recursive: true, force: true })
+})
+
+test('growth recap is due again once growthRecapIntervalDays has elapsed', () => {
+  const agent = makeAgent()
+  const dir = makeGrowthStore()
+  writeFileSync(join(dir, '.growth-recap.json'),
+    JSON.stringify({ version: 1, lastAt: Date.now() - 8 * 24 * 60 * 60 * 1000 }), 'utf8')
+  const tracker = makeSpokenTracker(agent)
+  const nudge = makeNudge(agent, dir, {}, tracker, growthExtras())
+  nudge.start()
+  agent.emitTurnStopped()
+  agent.emitTurnStopped()
+  assert.ok(agent.followups[0].id.startsWith('memory-growth-'))
+  nudge.dispose()
+  rmSync(dir, { recursive: true, force: true })
+})
+
+test('growth recap passes through the arbitration lock too', () => {
+  const agent = makeAgent()
+  const dir = makeGrowthStore()
+  const tracker = makeSpokenTracker(agent)
+  const nudge = makeNudge(agent, dir, {}, tracker, growthExtras({}, () => ({ ok: false, deferredBy: 'heartbeat' })))
+  nudge.start()
+  agent.emitTurnStopped()
+  agent.emitTurnStopped()
+  assert.equal(agent.followups.length, 0)
+  assert.equal(existsSync(join(dir, '.growth-recap.json')), false,
+    'a recap that never happened must not be recorded as delivered')
+  nudge.dispose()
+  rmSync(dir, { recursive: true, force: true })
+})
+
+test('growth disabled: the normal recall path is untouched', () => {
+  const agent = makeAgent()
+  const dir = makeGrowthStore()
+  const tracker = makeSpokenTracker(agent)
+  const nudge = makeNudge(agent, dir, {}, tracker, {
+    readGrowthConfig: () => ({ enabled: false, intervalDays: 7 }),
+    claimLock: () => ({ ok: true }),
+  })
+  nudge.start()
+  agent.emitTurnStopped()
+  agent.emitTurnStopped()
+  assert.ok(agent.followups[0].id.startsWith('memory-recall-'))
+  nudge.dispose()
+  rmSync(dir, { recursive: true, force: true })
+})
+
+test('a broken growth check falls back to recall (failure must not block追忆)', () => {
+  const agent = makeAgent()
+  const dir = makeGrowthStore()
+  const tracker = makeSpokenTracker(agent)
+  const nudge = makeNudge(agent, dir, {}, tracker, {
+    readGrowthConfig: () => { throw new Error('growth config unavailable') },
+    claimLock: () => ({ ok: true }),
+  })
+  nudge.start()
+  agent.emitTurnStopped()
+  agent.emitTurnStopped()
+  assert.equal(agent.followups.length, 1)
+  assert.ok(agent.followups[0].id.startsWith('memory-recall-'))
+  nudge.dispose()
+  rmSync(dir, { recursive: true, force: true })
+})
+
+test('a state-write failure still delivers the recap once', () => {
+  const agent = makeAgent()
+  const dir = makeGrowthStore()
+  const tracker = makeSpokenTracker(agent)
+  // A directory where the state file should be makes the atomic write fail.
+  mkdirSync(join(dir, '.growth-recap.json'))
+  const nudge = makeNudge(agent, dir, {}, tracker, growthExtras())
+  nudge.start()
+  agent.emitTurnStopped()
+  agent.emitTurnStopped()
+  assert.equal(agent.followups.length, 1, 'persisting the timestamp is not allowed to eat the message')
+  assert.ok(agent.followups[0].id.startsWith('memory-growth-'))
+  nudge.dispose()
+  rmSync(dir, { recursive: true, force: true })
 })

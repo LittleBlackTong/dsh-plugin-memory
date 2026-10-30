@@ -310,3 +310,48 @@ test('the digest guard omits the hint when the index is in sync', () => {
   assert.ok(!agent.followups[0].content[0].text.includes('index 有漂移'))
   guard.dispose()
 })
+
+// ── A. 发言权仲裁（v0.12.0）─────────────────────────────────────────────────
+//
+// digest 提醒和追忆一样，注入前先 claim 共享冷却锁；被 heartbeat 占位则本次
+// 跳过，下一个空闲边界再试（不消耗 digest 自己的冷却）。
+
+test('a refused claim defers the digest reminder and the next idle boundary retries', () => {
+  const store = makeStore(300)
+  const agent = makeAgent()
+  const claims = []
+  const results = [{ ok: false, deferredBy: 'heartbeat' }, { ok: true }]
+  const guard = new DigestGuard(agent, {
+    readConfig: () => ({
+      enabled: true, afterMinutes: 120, cooldownMinutes: 0, maxPerSession: 2, proactiveCooldownSeconds: 90,
+    }),
+    getMemoryDir: () => store,
+    claimLock: (options) => {
+      claims.push(options)
+      return results.shift() ?? { ok: false, deferredBy: 'heartbeat' }
+    },
+  })
+  guard.start()
+  agent.emitTurnStopped()
+  assert.equal(agent.followups.length, 0, 'heartbeat holds the mic: memory stays quiet')
+  assert.equal(claims.length, 1)
+  assert.equal(claims[0].cooldownSeconds, 90, 'the configured cooldown is handed to the lock')
+  agent.emitTurnStopped()
+  assert.equal(agent.followups.length, 1, 'the next trigger retries the claim')
+  assert.ok(agent.followups[0].id.startsWith('memory-digest-'))
+  guard.dispose()
+})
+
+test('a throwing claimLock never blocks the digest reminder', () => {
+  const store = makeStore(300)
+  const agent = makeAgent()
+  const guard = new DigestGuard(agent, {
+    readConfig: () => ({ enabled: true, afterMinutes: 120, cooldownMinutes: 0, maxPerSession: 2 }),
+    getMemoryDir: () => store,
+    claimLock: () => { throw new Error('lock file broken') },
+  })
+  guard.start()
+  agent.emitTurnStopped()
+  assert.equal(agent.followups.length, 1, 'arbitration is best-effort; the digest still lands')
+  guard.dispose()
+})

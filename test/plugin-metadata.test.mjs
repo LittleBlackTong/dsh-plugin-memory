@@ -135,6 +135,12 @@ test('registers the config route and GET serves the resolved config', async () =
     recallIntervalMinMinutes: 30,
     recallIntervalMaxMinutes: 240,
     recallMaxPerSession: 3,
+    // 0.12.0: shared proactive-speech arbitration + tone drift + growth recap.
+    proactiveCooldownSeconds: 180,
+    toneGuideEnabled: true,
+    toneIntensity: 'low',
+    growthRecapEnabled: true,
+    growthRecapIntervalDays: 7,
   })
   dispose()
 })
@@ -300,4 +306,61 @@ test('hot edit: memoryDir re-registers boot + skill against the new directory', 
   assert.ok(bootCall.text().includes(otherDir))
   assert.deepEqual(skillCall.resourceBase, { kind: 'directory', path: otherDir })
   dispose()
+})
+
+// ── 0.12.0 config surface: arbitration / tone / growth ─────────────────────
+
+test('tone config hot-applies to the boot block; an invalid intensity is rejected', async () => {
+  const { ctx, calls, injects } = makeFakeCtx()
+  const dispose = plugin(ctx, CFG)
+  const routes = new Map()
+  injects.find((entry) => entry.deps[0] === 'webServer').callback({
+    webServer: {
+      register(route) {
+        routes.set(route.path, route)
+        return () => routes.delete(route.path)
+      },
+    },
+    effect: () => () => {},
+  })
+  const route = routes.get(CONFIG_ROUTE_PATH)
+
+  const bootText = () => calls.filter(([service]) => service === 'systemPrompt').at(-1)[1].text()
+  assert.match(bootText(), /## 语气（按语境微调）/, 'tone guide is on by default')
+  assert.match(bootText(), /赶工\/紧急修复/)
+
+  let result = await routeCall(route, 'POST', JSON.stringify({ toneIntensity: 'medium' }))
+  assert.equal(result.status, 200)
+  assert.equal(JSON.parse(result.body).toneIntensity, 'medium')
+  assert.match(bootText(), /强度 medium/)
+
+  result = await routeCall(route, 'POST', JSON.stringify({ toneIntensity: 'loud' }))
+  assert.equal(result.status, 400, 'only low/medium/off are accepted')
+
+  result = await routeCall(route, 'POST', JSON.stringify({ toneGuideEnabled: false }))
+  assert.equal(result.status, 200)
+  assert.ok(!bootText().includes('## 语气'), 'tone off removes the whole section')
+
+  dispose()
+})
+
+test('new user-facing config keys persist through the JSON store', () => {
+  const path = join(TMP, `memory-store-tone-${Date.now()}.json`)
+  const store = new MemoryConfigStore({ path, base: { memoryDir: '/tmp/ok' } })
+  assert.equal(store.get().proactiveCooldownSeconds, 180)
+  assert.equal(store.get().toneGuideEnabled, true)
+  assert.equal(store.get().toneIntensity, 'low')
+  assert.equal(store.get().growthRecapEnabled, true)
+  assert.equal(store.get().growthRecapIntervalDays, 7)
+
+  store.update({ proactiveCooldownSeconds: 0, toneIntensity: 'medium', growthRecapEnabled: false })
+  const persisted = JSON.parse(readFileSync(path, 'utf8'))
+  assert.equal(persisted.proactiveCooldownSeconds, 0)
+  assert.equal(persisted.toneIntensity, 'medium')
+  assert.equal(persisted.growthRecapEnabled, false)
+
+  const reloaded = new MemoryConfigStore({ path, base: {} })
+  assert.equal(reloaded.get().proactiveCooldownSeconds, 0)
+  assert.equal(reloaded.get().toneIntensity, 'medium')
+  assert.equal(reloaded.get().growthRecapEnabled, false)
 })

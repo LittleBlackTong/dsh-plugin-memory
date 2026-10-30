@@ -51,6 +51,15 @@ dsh plugin --profile <profile> add dsh-plugin-memory
 - **记忆健康看板**：同一区块下方是一张**只读**看板——记忆页数 / index 路由数 / 记忆字数、访问新鲜度条形图（今天 / ≤7 / ≤30 / ≤90 / >90 天）、四项体检结论（index 链接、孤儿页、frontmatter、新鲜度）与健康分、陈旧页候选、最近 5 条动态。数据来自新增的 `GET /api/memory/insights`（每次请求实时统计，不缓存），体检口径与 `dsh-memory lint` 同源，所以看板与 CLI 不会互相打脸。
 - **零构建**：纯 ESM JavaScript，无编译步骤，`pnpm add` 即用。
 
+## 人格层、礼貌与成长（v0.12.0）
+
+四个小增量，把「带灵魂的存储」变成「会处事的伙伴」：
+
+- **A 与其他主动插件的发言权仲裁**：任何主动消息——追忆、digest 提醒、成长回顾——发出前先 claim 共享文件 `${DSH_HOME:-~/.dsh}/proactive-cooldown.json`（`{ version: 1, speaker: 'memory' | 'heartbeat', at: <epoch ms> }`，tmp+rename 原子写）。若 `proactiveCooldownSeconds`（默认 **180**，`0` = 关闭）内有其他 speaker 先 claim，本条让位且**不消耗节奏**——下次触发自动重试。两个插件零 import、各自独立实现同一协议，任一方可单独装 / 升 / 卸。
+- **B 语气漂移**：`lib/tone.js` 在 SOUL 之后注入一小段 `## 语气（按语境微调）`（≤12 行，**计入 boot 预算**——先扣掉该段字符成本再按文件分配）：赶工/紧急修复 → 短句、先结论、零玩笑；深夜（23:00–06:00）→ 更短更温和；报错/坏消息 → 先给事实与修复动作再谈感受；里程碑/完成 → 轻松一句然后回正事。`toneGuideEnabled`（默认 `true`）开关，`toneIntensity`（`low` / `medium` / `off`，默认 `low`）控制明显程度。
+- **C 表达层（只表达不假装）**：同一段语气规则画出边界——只描述**观察到的处境与关心**，不宣称内心情绪（禁「我很… / 我感到…」）；仅允许三类场合：风险/坏消息、里程碑/完成、超过 3 天没联系后的第一次开口。
+- **D 每周成长回顾**：`growthRecapEnabled`（默认 `true`）、`growthRecapIntervalDays`（默认 `7`）。走 **recall 通道**（同一节律、同一每会话上限、同一仲裁锁），内容只从记忆库已经证明的东西派生——最近的 `log.md` 标题与页面 mtime——不编造成长。`<store>/.growth-recap.json` 记录上次投递，重启不会重复同一周的回顾。
+
 ## 架构
 
 插件只拥有**工作流**，不拥有**数据格式**：
@@ -129,13 +138,18 @@ dsh plugin --profile <profile> add dsh-plugin-memory
 | `recallIntervalMinMinutes` | `30` | 随机间隔下限（分钟，面板可热改） |
 | `recallIntervalMaxMinutes` | `240` | 随机间隔上限（分钟，面板可热改） |
 | `recallMaxPerSession` | `3` | 每个会话最多追忆次数（面板可热改） |
+| `proactiveCooldownSeconds` | `180` | 与其他主动插件的共享发言冷却（`0` = 关闭） |
+| `toneGuideEnabled` | `true` | 在 SOUL 之后注入按语境微调的语气段 |
+| `toneIntensity` | `low` | `low` / `medium` / `off`（off = 纯工程师语气） |
+| `growthRecapEnabled` | `true` | 每周成长回顾（走 recall 通道） |
+| `growthRecapIntervalDays` | `7` | 两次成长回顾间隔天数 |
 | `autoCommit` | `true` | 记忆库 git 自动提交开关（composition） |
 | `autoCommitQuietSeconds` | `60` | 变更静默多久后提交（防抖） |
 | `autoCommitIntervalSeconds` | `60` | 变更轮询间隔 |
 
 ### 设置面板（热改）
 
-`enabled` / `memoryDir` / `autoInject` / `deferUntilUserSpeaks` / `activeSessionOnly` / `registerSkill` / `recallEnabled` / `recallIntervalMinMinutes` / `recallIntervalMaxMinutes` / `recallMaxPerSession` 十项在 DSH 设置页的「记忆 / Memory」区块中可改（跟随语言），**即时生效**：boot 注入、两道礼貌闸门、技能注册、主动追忆（含随机间隔与次数）随修改立即生效；记忆目录切换时自动为新目录初始化脚手架（`scaffold: true` 时）。其余键（`bootFiles` / `bootMaxChars` / `bootFileBudgets` / `trackPageAccess` / `scaffold` / `configFile` / `digestNudge*` / `autoCommit*`）只在 composition 配置层生效，改完需重启。
+`enabled` / `memoryDir` / `autoInject` / `deferUntilUserSpeaks` / `activeSessionOnly` / `registerSkill` / `recallEnabled` / `recallIntervalMinMinutes` / `recallIntervalMaxMinutes` / `recallMaxPerSession` / `proactiveCooldownSeconds` / `toneGuideEnabled` / `toneIntensity` / `growthRecapEnabled` / `growthRecapIntervalDays` 十五项在 DSH 设置页的「记忆 / Memory」区块中可改（跟随语言），**即时生效**：boot 注入、两道礼貌闸门、技能注册、主动追忆（含随机间隔与次数）、发言权仲裁、语气段与每周成长回顾随修改立即生效；记忆目录切换时自动为新目录初始化脚手架（`scaffold: true` 时）。其余键（`bootFiles` / `bootMaxChars` / `bootFileBudgets` / `trackPageAccess` / `scaffold` / `configFile` / `digestNudge*` / `autoCommit*`）只在 composition 配置层生效，改完需重启。
 
 ### 语言 / Language
 

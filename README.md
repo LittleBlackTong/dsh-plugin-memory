@@ -51,6 +51,15 @@ After that the loop is simple: the agent writes memories back as you work, and y
 - **Memory health dashboard**: below the same section is a **read-only** dashboard — memory pages / index routes / word count, an access-freshness bar chart (today / ≤7 / ≤30 / ≤90 / >90 days), four health verdicts (index links, orphan pages, frontmatter, freshness) with a health score, stale-page candidates, and the 5 most recent log entries. Data comes from the new `GET /api/memory/insights` (computed live per request, never cached), and its criteria share a source with `dsh-memory lint`, so the dashboard and the CLI cannot contradict each other.
 - **Zero build**: plain ESM JavaScript, no compilation step, usable straight after `pnpm add`.
 
+## Persona, politeness and growth (v0.12.0)
+
+Four small additions turn the memory from "storage with a soul" into a companion that behaves:
+
+- **Speech-right arbitration with other proactive plugins (A)**: before sending anything proactive — a recall, a digest reminder or a growth recap — the plugin claims the shared `${DSH_HOME:-~/.dsh}/proactive-cooldown.json` (`{ version: 1, speaker: 'memory' | 'heartbeat', at: <epoch ms> }`, atomic tmp+rename). If another speaker claimed inside `proactiveCooldownSeconds` (default **180**, `0` disables), the message is deferred and **the cadence is not consumed** — the next trigger retries. Neither plugin imports the other; both implement the same protocol independently, so either can be installed, upgraded or removed alone.
+- **Tone drift (B)**: `lib/tone.js` injects a small `## Tone (adapt to context)` section right after SOUL (≤12 lines, **charged to the boot budget** — its character cost is deducted before the per-file allocation): crunch/urgent fix → short sentences, conclusion first, zero jokes; deep night (23:00–06:00) → shorter and gentler; errors/bad news → facts and the fix before any feelings; milestone/finished → one light line, then back to business. `toneGuideEnabled` (default `true`) switches it, `toneIntensity` (`low` / `medium` / `off`, default `low`) sets how visible it is.
+- **Expression, never fake emotion (C)**: the same section draws the line — describe the **observed situation and care**, never claim inner feelings ("I am … / I feel …"); only three occasions are allowed: risk/bad news, milestones/completion, and the first line after 3+ days without contact.
+- **Weekly growth recap (D)**: `growthRecapEnabled` (default `true`) and `growthRecapIntervalDays` (default `7`). It rides the **recall channel** (same cadence, same per-session cap, same arbitration lock) and reads only what the store already proves — recent `log.md` headlines and page mtimes — so there is no invented progress. `<store>/.growth-recap.json` remembers the last delivery, so a restart does not repeat the same week.
+
 ## Architecture
 
 The plugin owns the **workflow**, never the **data format**:
@@ -121,6 +130,11 @@ Restart the profile (restart the DSH Desktop app) to take effect.
 | `recallIntervalMinMinutes` | `30` | Lower bound of the random interval (minutes, hot-editable) |
 | `recallIntervalMaxMinutes` | `240` | Upper bound of the random interval (minutes, hot-editable) |
 | `recallMaxPerSession` | `3` | Maximum recalls per session (hot-editable) |
+| `proactiveCooldownSeconds` | `180` | Shared speech-floor cooldown against other proactive plugins (`0` = off) |
+| `toneGuideEnabled` | `true` | Inject the context-sensitive tone section after SOUL |
+| `toneIntensity` | `low` | `low` / `medium` / `off` (pure engineering voice) |
+| `growthRecapEnabled` | `true` | Weekly growth recap on the recall channel |
+| `growthRecapIntervalDays` | `7` | Days between growth recaps |
 | `autoCommit` | `true` | Git auto-commit switch for the store (composition) |
 | `autoCommitQuietSeconds` | `60` | How long changes must be quiet before committing (debounce) |
 | `autoCommitIntervalSeconds` | `60` | Change polling interval |
@@ -129,7 +143,7 @@ Restart the profile (restart the DSH Desktop app) to take effect.
 
 The section is registered as **"Memory"** in the English UI and **「记忆」** in the Chinese UI — it follows DSH's own language setting (see [Language](#language) below).
 
-Ten settings are editable in the "Memory" section of the DSH settings page and take effect **immediately**: `enabled` / `memoryDir` / `autoInject` / `deferUntilUserSpeaks` / `activeSessionOnly` / `registerSkill` / `recallEnabled` / `recallIntervalMinMinutes` / `recallIntervalMaxMinutes` / `recallMaxPerSession` — boot injection, the two polite gates, skill registration, and proactive recall (including its random interval and cap) all follow the change at once; switching the store directory scaffolds the new one automatically (when `scaffold: true`). The remaining keys (`bootFiles` / `bootMaxChars` / `bootFileBudgets` / `trackPageAccess` / `scaffold` / `configFile` / `digestNudge*` / `autoCommit*`) only apply at the composition layer and need a restart.
+Fifteen settings are editable in the "Memory" section of the DSH settings page and take effect **immediately**: `enabled` / `memoryDir` / `autoInject` / `deferUntilUserSpeaks` / `activeSessionOnly` / `registerSkill` / `recallEnabled` / `recallIntervalMinMinutes` / `recallIntervalMaxMinutes` / `recallMaxPerSession` / `proactiveCooldownSeconds` / `toneGuideEnabled` / `toneIntensity` / `growthRecapEnabled` / `growthRecapIntervalDays` — boot injection, the two polite gates, skill registration, proactive recall (including its random interval and cap), speech-right arbitration, the tone section and the weekly growth recap all follow the change at once; switching the store directory scaffolds the new one automatically (when `scaffold: true`). The remaining keys (`bootFiles` / `bootMaxChars` / `bootFileBudgets` / `trackPageAccess` / `scaffold` / `configFile` / `digestNudge*` / `autoCommit*`) only apply at the composition layer and need a restart.
 
 ### Language
 

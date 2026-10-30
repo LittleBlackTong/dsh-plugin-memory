@@ -2,6 +2,20 @@
 
 所有记录跟随 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/) 风格；版本号与 `package.json` 保持一致。
 
+## [0.12.0] - 2026-10-30
+
+### Added（A 仲裁 + B 语气漂移 + C 表达层 + D 每周成长回顾）
+
+- **A 发言权仲裁（与 heartbeat 插件共享协议）**：新增 `lib/proactive-lock.js`。所有主动消息（recall / digest / growth 三个通道）投递前先 claim 共享文件 `${DSH_HOME:-~/.dsh}/proactive-cooldown.json`（`{ version: 1, speaker: 'memory' | 'heartbeat', at: <epoch ms> }`，tmp+rename 原子写）：若窗口内已有其他 speaker 的 claim，本条让位（日志 `... deferred for agent ... (... holds the lock)`）并**不消耗节奏**——下次触发自动重试；`proactiveCooldownSeconds`（默认 **180**，`0` = 关闭）。双方零 import，各自独立实现同一协议，任一方可单独装/卸。
+- **B 语气漂移（`lib/tone.js`）**：boot 块在 SOUL 之后注入一小段 `## 语气（按语境微调）`（英文 `## Tone (adapt to context)`），共 ≤12 行：赶工/紧急修复短句先结论、深夜（23:00–06:00）更短更温和、报错/坏消息先给事实与修复动作、里程碑/完成可轻松一句、闲聊回默认小蓝口吻。`toneGuideEnabled`（默认 `true`）、`toneIntensity`（`low` / `medium` / `off`，默认 `low`）；该段**计入 boot 预算**（先扣掉 tone 段的字符成本，再给文件分预算），不白嫖上下文。
+- **C 表达层（只表达不假装）**：同一段语气规则内置表达边界——只描述**观察到的处境与关心**，不宣称内心情绪（禁「我很… / 我感到…」）；仅允许三类场合：风险/坏消息、里程碑/完成、超过 3 天没联系后的第一次开口。原文例：「看你连着加班，有点担心你硬扛」。
+- **D 每周成长回顾（`lib/growth.js`）**：`growthRecapEnabled`（默认 `true`）、`growthRecapIntervalDays`（默认 `7`）；走 **recall 通道**（同一节律、同一每会话上限、同一仲裁锁），首人称「这周我记住了什么」；`<store>/.growth-recap.json` 记录上次投递，重启不会重复同一周的回顾；内容只从 `log.md` 标题与页面 mtime 派生——**不新增记账、不编造成长**。
+
+### Tests
+
+- 新增 `test/tone.test.mjs`、`test/growth.test.mjs`、`test/proactive-lock.test.mjs`；`recall-nudge` / `digest-guard` / `plugin-metadata` 等补仲裁、语气、回顾用例。
+- 全量单测 **242/242 通过**（0.11.0 基线 198，新增 44 条）；`node scripts/memory.mjs --self-test` PASS。
+
 ## [0.11.0] - 2026-10-30
 
 ### Added（设置面板与侧栏 label 跟随语言：中英双语）
