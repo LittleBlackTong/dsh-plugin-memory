@@ -572,3 +572,47 @@ test('v0.13.0 panel controls are keyboard/label accessible and talk to the contr
     assert.ok(CLIENT_SOURCE.includes(`t('${key}')`), `${key} is actually used`)
   }
 })
+
+// ── 8. v0.13.1: focus ring must target the real panel, labels complete ─────
+
+test('v0.13.1 focus-visible rules target the panel marker, not a dead <section> selector', () => {
+  const config = { enabled: true, memoryDir: '/tmp/memory' }
+  const { moduleExports } = browserHarness({ state: [config, 'ready', undefined, false, false, undefined] })
+  const tree = moduleExports.__test.MemoryForm({})
+  const texts = collectText(tree)
+  assert.ok(texts.includes('最短间隔') || CLIENT_SOURCE.includes("t('recallIntervalMin')"), 'the min interval input is labelled')
+  assert.ok(texts.includes('最长间隔') || CLIENT_SOURCE.includes("t('recallIntervalMax')"), 'the max interval input is labelled')
+  assert.ok(CLIENT_SOURCE.includes("'data-dsh-memory-panel': ''"), 'the form root carries the panel marker')
+  assert.ok(CLIENT_SOURCE.includes('[data-dsh-memory-panel] :focus-visible'), 'the focus rule matches the marker')
+  assert.ok(!CLIENT_SOURCE.includes('section [role="switch"]:focus-visible'), 'the dead <section> selector is gone')
+})
+
+test('v0.13.1 every control in the ready panel exposes an aria-label', () => {
+  const config = { enabled: true, memoryDir: '/tmp/memory' }
+  const { moduleExports } = browserHarness({ state: [config, 'ready', undefined, false, false, undefined] })
+  const tree = moduleExports.__test.MemoryForm({})
+  const controls = []
+  const walk = (node) => {
+    if (node === null || node === undefined || typeof node !== 'object') return
+    if (Array.isArray(node)) { for (const child of node) walk(child); return }
+    if (typeof node.type === 'function' && node.type.prototype?.isReactComponent !== true) {
+      walk(node.type(node.props))
+      return
+    }
+    if (node.type === 'input' || node.type === 'select' || node.type === 'button') controls.push(node)
+    for (const child of node.children ?? []) walk(child)
+  }
+  walk(tree)
+  assert.ok(controls.length >= 10, `expected the ready panel controls, saw ${controls.length}`)
+  const unlabelled = controls.filter((node) => typeof node.props?.['aria-label'] !== 'string' || node.props['aria-label'].length === 0)
+  assert.deepEqual(unlabelled.map((node) => node.type), [], 'every input/select/button needs a label')
+})
+
+test('v0.13.1 result copy maps the host reasons and auto-clears', () => {
+  const { DICTS } = browserHarness().moduleExports.__test
+  assert.equal(typeof DICTS.zh.growthNowBusy, 'string')
+  assert.equal(typeof DICTS.en.growthNowBusy, 'string')
+  assert.ok(CLIENT_SOURCE.includes("t('growthNowBusy')"), 'busy is surfaced instead of masquerading as "no content"')
+  assert.ok(CLIENT_SOURCE.includes("reason === 'no-content'"), 'no-content maps to the empty-copy branch')
+  assert.ok(CLIENT_SOURCE.includes('setGrowthNotice(undefined), 5000'), 'the notice clears after ~5s')
+})

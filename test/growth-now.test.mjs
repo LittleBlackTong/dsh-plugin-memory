@@ -90,6 +90,9 @@ test('forceGrowthRecap delivers one first-person recap and stamps the state file
     // And a second manual call still works (manual ignores the cadence) but
     // never invents a message when nothing changed? It re-delivers by design.
     assert.equal(nudge.forceGrowthRecap().delivered, true)
+    // A manual recap pushes the automatic cadence forward (no back-to-back
+    // proactive messages), while the per-session cap is intentionally bypassed.
+    assert.ok(nudge.nextRecallAt > Date.now(), 'the automatic cadence moved forward')
   } finally {
     rmSync(dir, { recursive: true, force: true })
   }

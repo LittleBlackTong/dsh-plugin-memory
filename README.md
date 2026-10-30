@@ -146,7 +146,7 @@ The section is registered as **"Memory"** in the English UI and **「记忆」**
 
 Fifteen settings are editable in the "Memory" section of the DSH settings page and take effect **immediately**: `enabled` / `memoryDir` / `autoInject` / `deferUntilUserSpeaks` / `activeSessionOnly` / `registerSkill` / `recallEnabled` / `recallIntervalMinMinutes` / `recallIntervalMaxMinutes` / `recallMaxPerSession` / `proactiveCooldownSeconds` / `toneGuideEnabled` / `toneIntensity` / `growthRecapEnabled` / `growthRecapIntervalDays` — boot injection, the two polite gates, skill registration, proactive recall (including its random interval and cap), speech-right arbitration, the tone section and the weekly growth recap all follow the change at once; switching the store directory scaffolds the new one automatically (when `scaffold: true`). The remaining keys (`bootFiles` / `bootMaxChars` / `bootFileBudgets` / `trackPageAccess` / `scaffold` / `configFile` / `digestNudge*` / `autoCommit*`) only apply at the composition layer and need a restart.
 
-A **Review now** button sits beside them: it is a **control, not a setting** — it asks the plugin to send one growth recap immediately. It still respects the speech floor (it backs off if the other plugin is speaking), sends nothing when this week has no new material, works even while `recallEnabled` is off, and reports the outcome in the panel (sending / sent / deferred / no content / disabled / failed).
+A **Review now** button sits beside them: it is a **control, not a setting** — it asks the plugin to send one growth recap immediately. It still respects the speech floor (it backs off if the other plugin is speaking), sends nothing when this week has no new material, works even while `recallEnabled` is off, and reports the outcome in the panel (sending / sent / deferred / session busy / no content / disabled / failed) — the result notice clears itself after 5 seconds.
 
 ### Language
 
@@ -251,7 +251,7 @@ node scripts/memory.mjs --self-test   # smoke test (no dependencies to install)
 
 Zero build: `lib/` is runtime code as-is, and `lib/types/index.d.ts` serves TypeScript consumers. `boot.js` / `scaffold.js` depend only on `node:*` built-ins and can be reused standalone.
 
-The test suite (`node --test`) currently holds **255 tests**, and CI (`.github/workflows/ci.yml`) runs it together with `node scripts/memory.mjs --self-test`. Contribution and security policies live in [CONTRIBUTING.md](CONTRIBUTING.md) and [SECURITY.md](SECURITY.md); the cross-plugin speech-floor protocol is documented in [docs/PROACTIVE-PROTOCOL.md](docs/PROACTIVE-PROTOCOL.md).
+The test suite (`node --test`) currently holds **258 tests**, and CI (`.github/workflows/ci.yml`) runs it together with `node scripts/memory.mjs --self-test`. Contribution and security policies live in [CONTRIBUTING.md](CONTRIBUTING.md) and [SECURITY.md](SECURITY.md); the cross-plugin speech-floor protocol is documented in [docs/PROACTIVE-PROTOCOL.md](docs/PROACTIVE-PROTOCOL.md).
 
 ## Roadmap
 

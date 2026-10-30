@@ -2,6 +2,25 @@
 
 所有记录跟随 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/) 风格；版本号与 `package.json` 保持一致。
 
+## [0.13.1] - 2026-10-30
+
+### Fixed（面板可用性四连）
+
+- **追忆间隔两个输入框缺可访问名**：`recallIntervalMinMinutes` / `recallIntervalMaxMinutes` 的 NumberInput 之前只有视觉标签；现在用新增的 `recallIntervalMin` / `recallIntervalMax` 文案作为 `aria-label`（中英），屏幕阅读器能读出「最短间隔 / 最长间隔」。
+- **语气强度下拉缺可访问名**：`toneIntensity` 的 SelectInput 补 `aria-label`（复用「语气强度」文案）。
+- **`:focus-visible` 焦点环实际从未生效**：原规则带了不存在的 `section` 祖先前缀，而设置面板并不在 `section` 元素内 → 规则永远不命中。改为在面板根 `div` 上打 `data-dsh-memory-panel` 标记，选择器直接命中该 marker（含根自身），键盘焦点环在表单与按钮上真正可见。
+- **「立即回顾」结果提示错乱**：`busy` / `disabled` / `error` 之前全落到「没有新内容」；重写 reason 映射——`busy` → 新增「会话正忙，稍后再试」（`growthNowBusy`，中英）、`disabled` / `growth-disabled` → 「成长回顾已关闭」、`error` / `agent-gone` / `disposed` → 「回顾失败」、`no-content` 才显示「没有新内容」；并让提示 **5 秒后自动消失**。
+
+### Notes
+
+- **手动「立即回顾」有意不受每会话追忆上限约束**：它是用户显式操作，不计入自动追忆的 `recallMaxPerSession`；但插件启用、agent idle、成长回顾开启、有内容、发言权仲裁仍然全部生效。
+- 另：手动回顾成功后会把自动追忆节律前移（不会紧接着又发一条）；多 root 会话时优先投递到当前活跃会话；`types/index.d.ts` 补 `CONTROL_ROUTE_PATH` / `GRAPH_ROUTE_PATH` 常量声明。
+
+### Tests
+
+- `client-i18n` / `growth-now` 补 aria、reason 映射、5 秒自动清除、节律前移与多 root 选择用例。
+- 全量单测 **258/258 通过**（0.13.0 基线 255，新增 3 条）；`node scripts/memory.mjs --self-test` PASS。
+
 ## [0.13.0] - 2026-10-30
 
 ### Added（兼容声明 + 立即回顾 + 可访问性 + 工程化）

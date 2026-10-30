@@ -88,6 +88,12 @@ export const CONFIG_ROUTE_PATH: '/api/memory/config'
 /** Read-only HTTP route serving the memory-health dashboard payload. */
 export const INSIGHTS_ROUTE_PATH: '/api/memory/insights'
 
+/** Read-only HTTP route serving the memory graph payload. */
+export const GRAPH_ROUTE_PATH: '/api/memory/graph'
+
+/** Manual control route (`growth-now`): deliver one recap on demand. */
+export const CONTROL_ROUTE_PATH: '/api/memory/control'
+
 /** User-editable settings (composition config is the base layer). */
 export interface MemorySettings {
   enabled?: boolean

@@ -152,7 +152,7 @@ dsh plugin --profile <profile> add dsh-plugin-memory
 
 `enabled` / `memoryDir` / `autoInject` / `deferUntilUserSpeaks` / `activeSessionOnly` / `registerSkill` / `recallEnabled` / `recallIntervalMinMinutes` / `recallIntervalMaxMinutes` / `recallMaxPerSession` / `proactiveCooldownSeconds` / `toneGuideEnabled` / `toneIntensity` / `growthRecapEnabled` / `growthRecapIntervalDays` 十五项在 DSH 设置页的「记忆 / Memory」区块中可改（跟随语言），**即时生效**：boot 注入、两道礼貌闸门、技能注册、主动追忆（含随机间隔与次数）、发言权仲裁、语气段与每周成长回顾随修改立即生效；记忆目录切换时自动为新目录初始化脚手架（`scaffold: true` 时）。其余键（`bootFiles` / `bootMaxChars` / `bootFileBudgets` / `trackPageAccess` / `scaffold` / `configFile` / `digestNudge*` / `autoCommit*`）只在 composition 配置层生效，改完需重启。
 
-旁边还有一个 **「立即回顾」按钮**：它是**控制动作，不是配置项**——让插件立刻发一次成长回顾。仍尊重发言权仲裁（别的插件在说话就让位）、本周没有新内容就不发、即使 `recallEnabled` 关闭也能用，并在面板里给出结果（回顾中 / 已发送 / 让位 / 没有新内容 / 已关闭 / 失败）。
+旁边还有一个 **「立即回顾」按钮**：它是**控制动作，不是配置项**——让插件立刻发一次成长回顾。仍尊重发言权仲裁（别的插件在说话就让位）、本周没有新内容就不发、即使 `recallEnabled` 关闭也能用，并在面板里给出结果（回顾中 / 已发送 / 让位 / 会话正忙 / 没有新内容 / 已关闭 / 失败），结果提示 5 秒后自动消失。
 
 ### 语言 / Language
 
@@ -257,7 +257,7 @@ node scripts/memory.mjs --self-test   # 冒烟测试（无需安装依赖）
 
 零构建：`lib/` 直接是运行时代码，`lib/types/index.d.ts` 供 TS 消费方使用。`boot.js` / `scaffold.js` 只依赖 `node:*` 内置模块，可独立复用。
 
-测试用 `node --test`，当前共 **255 个用例**；CI（`.github/workflows/ci.yml`）会连同 `node scripts/memory.mjs --self-test` 一起跑。贡献与安全策略见 [CONTRIBUTING.md](CONTRIBUTING.md)、[SECURITY.md](SECURITY.md)；跨插件发言协议见 [docs/PROACTIVE-PROTOCOL.md](docs/PROACTIVE-PROTOCOL.md)。
+测试用 `node --test`，当前共 **258 个用例**；CI（`.github/workflows/ci.yml`）会连同 `node scripts/memory.mjs --self-test` 一起跑。贡献与安全策略见 [CONTRIBUTING.md](CONTRIBUTING.md)、[SECURITY.md](SECURITY.md)；跨插件发言协议见 [docs/PROACTIVE-PROTOCOL.md](docs/PROACTIVE-PROTOCOL.md)。
 
 ## 路线图
 
