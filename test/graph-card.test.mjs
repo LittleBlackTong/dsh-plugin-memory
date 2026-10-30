@@ -7,6 +7,10 @@ import vm from 'node:vm'
 const React = {
   // React.memo is an identity wrapper for this harness.
   memo(component) { return component },
+  // Context carries the `t` seat; rendering GraphView directly falls back to
+  // the context default (the Chinese fallback translator).
+  createContext(defaultValue) { return { _default: defaultValue } },
+  useContext(context) { return context._default },
   createElement(type, props, ...children) {
     const flat = []
     const push = (value) => {

@@ -127,7 +127,13 @@ Restart the profile (restart the DSH Desktop app) to take effect.
 
 ### Settings panel (hot edits)
 
+The section is registered as **"Memory"** in the English UI and **「记忆」** in the Chinese UI — it follows DSH's own language setting (see [Language](#language) below).
+
 Ten settings are editable in the "Memory" section of the DSH settings page and take effect **immediately**: `enabled` / `memoryDir` / `autoInject` / `deferUntilUserSpeaks` / `activeSessionOnly` / `registerSkill` / `recallEnabled` / `recallIntervalMinMinutes` / `recallIntervalMaxMinutes` / `recallMaxPerSession` — boot injection, the two polite gates, skill registration, and proactive recall (including its random interval and cap) all follow the change at once; switching the store directory scaffolds the new one automatically (when `scaffold: true`). The remaining keys (`bootFiles` / `bootMaxChars` / `bootFileBudgets` / `trackPageAccess` / `scaffold` / `configFile` / `digestNudge*` / `autoCommit*`) only apply at the composition layer and need a restart.
+
+### Language
+
+The settings panel and its sidebar label follow DSH's own language setting (**Settings → General → Language**) and switch live — no restart: Chinese shows 「记忆」, English shows "Memory". Panel copy is registered as the `memory` locale namespace through `ctx.locale`, so the renderer re-renders the whole panel (form, health dashboard, graph card) in the active language and injects a `t(key)` seat into the section. The sidebar icon claim key is derived from that same label, so a language switch re-claims the right row. The dashboard's health-check labels **and details** are rebuilt client-side from locale-neutral `data` the insights route ships (`lib/insights.js` keeps the Chinese `label`/`detail` strings for the CLI); an older host payload without `data` falls back to those Chinese strings. User content (page titles, `log.md` headlines) and the CLI's own Chinese output are content, not UI copy, and stay as-is.
 
 ### Boot budget allocation (why the index is not truncated first)
 

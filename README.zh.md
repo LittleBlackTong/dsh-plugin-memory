@@ -42,7 +42,7 @@ dsh plugin --profile <profile> add dsh-plugin-memory
 - **防懒 digest 唤醒**：每轮结束后，若 agent 空闲且记忆库超过 `digestNudgeAfterMinutes` 未写入，插件注入一条 digest 提醒（合成消息，走 `agent.followup`），把"会话收尾沉淀"从靠自觉变成有机制兜底；带冷却与每会话限次，不骚扰。**独立于 dsh-plugin-heartbeat**，两插件各自可装、互不依赖。
 - **主动追忆（拟人化）**：对话空下来时，插件会以第一人称主动提起一件**真实记得**的、关于用户或你们之间的事（偏好、往事、未了的决定、最近的进展），把记忆从"只写回"变成"也用起来"——像老友自然想起那样，而非报状态。间隔在最短/最长之间**随机取值**（不固定节奏），配合每会话限次，不骚扰、不编造、不硬聊；纯对话行为，不写记忆库。**同样独立于 heartbeat**。
 - **git 自动提交**：记忆库变更静默 `autoCommitQuietSeconds` 后自动 `git add -A && git commit`（无 `.git` 则跳过）——历史可回滚不再依赖 agent 记得 commit。
-- **设置面板**：在 DSH 设置页提供「记忆 Memory」区块——总开关、记忆目录、开机注入、技能注册、主动追忆（开关 + 随机间隔范围 + 每会话次数）均可热改，立即生效，无需重启。
+- **设置面板**：在 DSH 设置页提供「记忆 / Memory」区块（跟随语言）——总开关、记忆目录、开机注入、技能注册、主动追忆（开关 + 随机间隔范围 + 每会话次数）均可热改，立即生效，无需重启。
 - **index 自动整理（声明式编译）**：索引行不再手写。页面在 frontmatter 里声明 `summary:`，`dsh-memory index --write` 把行重写为它的投影（标签 ≤32 / 摘要 ≤48 / 整行 ≤132 字符），**只改行内容，分节与顺序逐字节保留**，且幂等。`index --check` 给机器判定（有漂移退出码非 0），`index --sync-frontmatter` 把已写在 index 里的摘要回填进页面（老库一次性迁移）。digest 提醒会在索引漂移时附一句提示，agent 顺手就能修。
 - **互链成为默认动作**：`index.md` 是目录（谁存在），页间互链才是**关系**（谁和谁有关）——实测一个真实记忆库里 29 页只有 1 条真互链，而图谱与跨页综合全都建立在这层关系上。现在三处一起推：`skills/memory.md` 的 remember 流程、`MEMORY.md` 模板的工作流、以及 digest 提醒的收尾指令，都明确要求"给这次碰过的页面各补 1–3 条相关页链接"。
 - **补链建议**：`dsh-memory graph --suggest` 列出「只有索引入口、没有任何内容关系」的页面该引用谁——按共享主题 tag、标题词、同类型打分，并说明理由（`共享 #dsh` / `标题词 dsh` / `同类型`）。只报告不写入：是否连、怎么连由 agent 决定。`GET /api/memory/graph?suggest=1` 同源。
@@ -65,7 +65,7 @@ dsh-plugin-memory（本插件）
 ├── lib/digest-guard.js # 防懒 digest 唤醒（空闲 + 记忆库久未写 → followup 提醒）
 ├── lib/recall-nudge.js # 主动追忆（空闲 → 第一人称提起一件真实往事，纯对话不写库）
 ├── lib/scaffold.js     # 记忆库脚手架（模板只建不覆盖）
-├── lib/client.js       # 客户端半：设置面板「记忆 Memory」区块 + 记忆健康看板
+├── lib/client.js       # 客户端半：设置面板「记忆 / Memory」区块（跟随语言）+ 记忆健康看板
 ├── skills/memory.md    # 内嵌技能的操作协议正文
 └── scripts/memory.mjs  # CLI：init/search/touch/lint/status/pack/unpack
 
@@ -135,7 +135,11 @@ dsh plugin --profile <profile> add dsh-plugin-memory
 
 ### 设置面板（热改）
 
-`enabled` / `memoryDir` / `autoInject` / `deferUntilUserSpeaks` / `activeSessionOnly` / `registerSkill` / `recallEnabled` / `recallIntervalMinMinutes` / `recallIntervalMaxMinutes` / `recallMaxPerSession` 十项在 DSH 设置页的「记忆 Memory」区块中可改，**即时生效**：boot 注入、两道礼貌闸门、技能注册、主动追忆（含随机间隔与次数）随修改立即生效；记忆目录切换时自动为新目录初始化脚手架（`scaffold: true` 时）。其余键（`bootFiles` / `bootMaxChars` / `bootFileBudgets` / `trackPageAccess` / `scaffold` / `configFile` / `digestNudge*` / `autoCommit*`）只在 composition 配置层生效，改完需重启。
+`enabled` / `memoryDir` / `autoInject` / `deferUntilUserSpeaks` / `activeSessionOnly` / `registerSkill` / `recallEnabled` / `recallIntervalMinMinutes` / `recallIntervalMaxMinutes` / `recallMaxPerSession` 十项在 DSH 设置页的「记忆 / Memory」区块中可改（跟随语言），**即时生效**：boot 注入、两道礼貌闸门、技能注册、主动追忆（含随机间隔与次数）随修改立即生效；记忆目录切换时自动为新目录初始化脚手架（`scaffold: true` 时）。其余键（`bootFiles` / `bootMaxChars` / `bootFileBudgets` / `trackPageAccess` / `scaffold` / `configFile` / `digestNudge*` / `autoCommit*`）只在 composition 配置层生效，改完需重启。
+
+### 语言 / Language
+
+设置面板与侧栏 label 跟随 DSH 自己的语言设置（**设置 → 通用设置 → 语言**），切换即时生效、无需重启：中文显示「记忆」，英文显示 "Memory"。面板文案通过 `ctx.locale` 注册在 `memory` 命名空间，renderer 会给区块注入 `t(key)` 座位，于是表单、健康看板、图谱卡片整体重渲染为当前语言；侧栏图标的认领键取自同一个 label 解析函数，语言切换后自动重新认领正确的那一行。健康看板的四项体检 **label 与 detail** 由 insights 路由新增的结构化 `data` 在客户端按语言重建（`lib/insights.js` 仍保留中文 `label`/`detail` 供 CLI 使用）；旧版本宿主 payload 没有 `data` 时回退中文串。用户内容（页面标题、`log.md` 动态）与 CLI 自身的中文输出属于内容而非界面文案，不在翻译范围内。
 
 ### boot 预算分配（为什么 index 不会先被截掉）
 
@@ -151,7 +155,7 @@ dsh plugin --profile <profile> add dsh-plugin-memory
 
 ### 记忆健康看板
 
-设置页「记忆 Memory」区块下方是一张**只读**看板，数据来自 `GET /api/memory/insights`：
+设置页「记忆 / Memory」区块下方是一张**只读**看板，数据来自 `GET /api/memory/insights`：
 
 | 展示 | 含义 |
 |---|---|

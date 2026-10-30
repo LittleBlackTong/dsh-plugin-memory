@@ -71,6 +71,11 @@ test('overview, distributions and freshness buckets are derived from the store',
 
     const byType = Object.fromEntries(insights.byType.map((t) => [t.type, t.count]))
     assert.deepEqual(byType, { user: 2, skill: 1 })
+    // Additive, locale-neutral alias for clients that translate labels themselves.
+    assert.deepEqual(insights.typeCounts, insights.byType, 'typeCounts mirrors byType row for row')
+    assert.deepEqual(insights.typeCounts.map((t) => t.type), ['user', 'skill'])
+    assert.ok(insights.typeCounts.every((t) => typeof t.label === 'string' && t.label.length > 0),
+      'the Chinese display label stays on every row for CLI / older consumers')
     const bySalience = Object.fromEntries(insights.bySalience.map((s) => [s.level, s.count]))
     assert.deepEqual(bySalience, { 1: 1, 2: 1, 3: 1 })
 
@@ -120,6 +125,11 @@ test('health checks mirror lint: broken index links and orphans fail, clean stor
     const cleanResult = collectInsights(clean)
     assert.equal(cleanResult.health.checks.every((c) => c.ok), true, 'clean store passes every check')
     assert.equal(cleanResult.health.checks.find((c) => c.id === 'index').detail, '1 条路由全部有效')
+    // Locale-neutral `data` rides alongside the Chinese strings (additive).
+    assert.deepEqual(cleanResult.health.checks.find((c) => c.id === 'index').data, { routes: 1, missing: 0 })
+    assert.deepEqual(cleanResult.health.checks.find((c) => c.id === 'orphans').data, { count: 0, sample: [] })
+    assert.deepEqual(cleanResult.health.checks.find((c) => c.id === 'frontmatter').data, { missingSalience: 0, missingType: 0 })
+    assert.deepEqual(cleanResult.health.checks.find((c) => c.id === 'freshness').data, { atRisk: 0 })
 
     const messyResult = collectInsights(messy)
     assert.equal(messyResult.health.checks.find((c) => c.id === 'index').ok, false)
@@ -128,6 +138,12 @@ test('health checks mirror lint: broken index links and orphans fail, clean stor
     assert.equal(messyResult.health.checks.find((c) => c.id === 'freshness').ok, false)
     assert.ok(messyResult.health.score < cleanResult.health.score)
     assert.ok(messyResult.health.score >= 0 && messyResult.health.score <= 100)
+    const messyIndex = messyResult.health.checks.find((c) => c.id === 'index')
+    assert.deepEqual(messyIndex.data, { routes: 2, missing: 1 })
+    assert.equal(messyIndex.detail, '1 条指向不存在的页', 'the Chinese detail stays verbatim for CLI consumers')
+    assert.deepEqual(messyResult.health.checks.find((c) => c.id === 'orphans').data, { count: 1, sample: ['user/orphan.md'] })
+    assert.deepEqual(messyResult.health.checks.find((c) => c.id === 'frontmatter').data, { missingSalience: 1, missingType: 0 })
+    assert.deepEqual(messyResult.health.checks.find((c) => c.id === 'freshness').data, { atRisk: 1 })
   } finally {
     rmSync(clean, { recursive: true, force: true })
     rmSync(messy, { recursive: true, force: true })

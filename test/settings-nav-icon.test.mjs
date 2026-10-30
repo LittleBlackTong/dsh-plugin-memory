@@ -5,9 +5,29 @@ import {
   navIconCss,
   brainCircuitMaskUrl,
   BRAIN_CIRCUIT_PATHS,
-  MEMORY_SECTION_LABEL,
+  MEMORY_SECTION_LABELS,
+  sectionLabel,
   NAV_ICON_ATTR,
 } from '../lib/settings-nav-icon.js'
+
+// ── the label follows DSH's language setting ───────────────────────────────
+//
+// The label is both the displayed text and the claim key, so it must be
+// resolved by one pure function: `sectionLabel(language)`. Chinese is the
+// fallback for anything that is not exactly 'en' (DSH's default language).
+
+test('sectionLabel resolves the Chinese and English labels', () => {
+  assert.equal(sectionLabel('zh'), '记忆')
+  assert.equal(sectionLabel('en'), 'Memory')
+  assert.deepEqual(Object.keys(MEMORY_SECTION_LABELS).sort(), ['en', 'zh'], 'exactly two languages ship')
+})
+
+test('sectionLabel falls back to Chinese for unknown or missing languages', () => {
+  assert.equal(sectionLabel(undefined), '记忆')
+  assert.equal(sectionLabel(null), '记忆')
+  assert.equal(sectionLabel(''), '记忆')
+  assert.equal(sectionLabel('fr'), '记忆', 'a language we do not ship must not resolve to an empty label')
+})
 
 // ── isOwnNavRow: the only decision this feature makes ──────────────────────
 //
@@ -16,15 +36,19 @@ import {
 // Claiming the wrong row would hide someone else's glyph, so the match is
 // exact (after trimming) rather than substring.
 
-test('isOwnNavRow claims the row whose text is exactly our label', () => {
-  assert.equal(isOwnNavRow('Memory', MEMORY_SECTION_LABEL), true)
-  assert.equal(isOwnNavRow('  Memory  ', MEMORY_SECTION_LABEL), true, 'surrounding whitespace is trimmed')
+test('isOwnNavRow claims the row whose text is exactly our label, in either language', () => {
+  assert.equal(isOwnNavRow('记忆', sectionLabel('zh')), true)
+  assert.equal(isOwnNavRow('Memory', sectionLabel('en')), true)
+  assert.equal(isOwnNavRow('  Memory  ', sectionLabel('en')), true, 'surrounding whitespace is trimmed')
 })
 
 test('isOwnNavRow refuses anything that is not an exact match', () => {
-  assert.equal(isOwnNavRow('记忆 Memory', MEMORY_SECTION_LABEL), false, 'the old bilingual label must not match')
-  assert.equal(isOwnNavRow('Memory graph', MEMORY_SECTION_LABEL), false, 'a longer label is a different section')
-  assert.equal(isOwnNavRow('Model', MEMORY_SECTION_LABEL), false)
+  assert.equal(isOwnNavRow('记忆 Memory', sectionLabel('en')), false, 'the old bilingual label must not match')
+  assert.equal(isOwnNavRow('Memory graph', sectionLabel('en')), false, 'a longer label is a different section')
+  assert.equal(isOwnNavRow('Model', sectionLabel('en')), false)
+  // The two languages never claim each other's row.
+  assert.equal(isOwnNavRow('Memory', sectionLabel('zh')), false)
+  assert.equal(isOwnNavRow('记忆', sectionLabel('en')), false)
 })
 
 test('isOwnNavRow refuses an unresolved label', () => {
@@ -37,8 +61,8 @@ test('isOwnNavRow refuses an unresolved label', () => {
 })
 
 test('isOwnNavRow tolerates a null row text', () => {
-  assert.equal(isOwnNavRow(null, MEMORY_SECTION_LABEL), false)
-  assert.equal(isOwnNavRow(undefined, MEMORY_SECTION_LABEL), false)
+  assert.equal(isOwnNavRow(null, sectionLabel('en')), false)
+  assert.equal(isOwnNavRow(undefined, sectionLabel('en')), false)
 })
 
 // ── navIconCss: hide the shell's gear, paint ours ──────────────────────────

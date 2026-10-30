@@ -93,6 +93,14 @@ test('registers a read-only insights route alongside the config route', async ()
     assert.equal(payload.overview.pages, 1)
     assert.equal(payload.overview.indexEntries, 1)
     assert.equal(payload.health.checks.length, 4)
+    // Every check ships locale-neutral `data` next to its Chinese label/detail,
+    // so the settings panel can render the same sentence in English.
+    assert.deepEqual(payload.health.checks.map((c) => c.id), ['index', 'orphans', 'frontmatter', 'freshness'])
+    assert.deepEqual(payload.health.checks.find((c) => c.id === 'index').data, { routes: 1, missing: 0 })
+    assert.deepEqual(payload.health.checks.find((c) => c.id === 'orphans').data, { count: 0, sample: [] })
+    assert.deepEqual(payload.health.checks.find((c) => c.id === 'frontmatter').data, { missingSalience: 0, missingType: 0 })
+    assert.deepEqual(payload.health.checks.find((c) => c.id === 'freshness').data, { atRisk: 0 })
+    assert.deepEqual(payload.typeCounts, payload.byType, 'typeCounts rides along as a locale-neutral alias')
     assert.equal(payload.store, dir)
 
     const rejected = await routeCall(routes.get(INSIGHTS_ROUTE_PATH), 'POST', '{}')

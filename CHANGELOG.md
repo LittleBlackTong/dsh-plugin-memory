@@ -2,6 +2,22 @@
 
 所有记录跟随 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/) 风格；版本号与 `package.json` 保持一致。
 
+## [0.11.0] - 2026-10-30
+
+### Added（设置面板与侧栏 label 跟随语言：中英双语）
+
+- **面板接 DSH 官方语言层**：客户端半 `exports.inject = ['slots', 'locale']`，`apply()` 里 `ctx.locale.register('memory', { zh, en })`，`settings.section` 注册项声明 `locale: 'memory'` → renderer 会注入 `t(key)` 座位，在「设置 → 通用设置 → 语言」切换时整块面板（表单 / 健康看板 / 图谱卡片）自动重渲染；不读 `navigator.language`、无需重启。共 **86 个翻译 key**，中英一一对齐（测试强制校验，且源码里不允许出现字典外的中文字面量）。
+- **侧栏 label 跟随语言**：中文「记忆」/ 英文 "Memory"，由纯函数 `sectionLabel(language)` 解析（`lib/settings-nav-icon.js` 与客户端内联副本各一份，测试校验两处一致）；`claimNavIcon` 的认领键用同一个函数，语言切换后 MutationObserver 重新认领正确行，不会盖掉别人的图标。
+- **健康看板可全英文**：`lib/insights.js` 对 `health.checks[]` 追加 **additive 的结构化 `data`**（`index → {routes, missing}` / `orphans → {count, sample}` / `frontmatter → {missingSalience, missingType}` / `freshness → {atRisk}`），并新增 `typeCounts[]` 作为 `byType` 的语言中立别名（同样带 `type`/`label`/`count`）。客户端用 `t()` + `data` 重建 label/detail，英文界面不再残留中文体检结论；**旧字段 `label`/`detail` 原样保留**，CLI（`checkup`/`status`）与旧前端不受影响，缺 `data` 的旧 payload 回退中文。
+- **图谱与文字细节**：节点 tooltip 的「N 条关系」、类型图例/tooltip、统计行、孤立页提示、图例说明、`aria-label` 全部走语言包；`type` 按已知 8 类 + `unknown` 翻译，未知类型回退原值。图标规格不变（16×16 / stroke 1.3 / 纯黑 alpha）。
+
+### Tests
+
+- 新增 `test/client-i18n.test.mjs`（15 条，`node:vm` 假 DOM/MutationObserver/React 加载 `lib/client.js`）：inject 含 `locale`、`slot.locale = 'memory'`、字典中英 key 完全对齐、无死 key、源码无字典外中文字面量、不读 `navigator.language`、中英 label 与图标认领、语言切换后 MutationObserver 重新认领、teardown 摘干净、`t` 座位缺失回退中文不崩、注入的 `t` 优先、整块表单/健康看板/图谱英文渲染**零中文残留**（用带中文 label/detail 的假 payload 证明看板 label/detail 来自英文语言包）、旧 payload 向后兼容。
+- `test/settings-nav-icon.test.mjs` 改为动态 label：`sectionLabel('zh') === '记忆'` / `sectionLabel('en') === 'Memory'`、未知或缺失语言回退中文、两种语言互不认领对方的行。
+- `test/insights.test.mjs` / `test/insights-route.test.mjs` 补新字段断言（`checks[].data`、`typeCounts` 与 `byType` 一致、中文 `label`/`detail` 原样保留），不削弱既有断言；`test/graph-card.test.mjs` 的 React stub 补 `createContext`/`useContext`。
+- 全量 **198/198 通过**（0.10.1 基线 181，新增 17 条）；`node scripts/memory.mjs --self-test` PASS；`npm pack --dry-run` 正常（文件清单不变）。
+
 ## [0.10.1] - 2026-10-30
 
 ### Changed（文档）
