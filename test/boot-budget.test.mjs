@@ -136,6 +136,49 @@ test('renderBootBlock still caps the block at the total budget', () => {
   }
 })
 
+test('CJK stores are budgeted in characters, not UTF-8 bytes', () => {
+  // '字' is 3 UTF-8 bytes but one character. Sizing by bytes makes every CJK
+  // file look 3x longer than it is: each one is capped at the even share, the
+  // pool is spent before the surplus can flow back, and the file that is
+  // actually long gets truncated even though the budget would fit it.
+  const dir = mkdtempSync(join(tmpdir(), 'memory-budget-cjk-'))
+  try {
+    writeFileSync(join(dir, 'SOUL.md'), '字'.repeat(6000), 'utf8')
+    writeFileSync(join(dir, 'MEMORY.md'), '字'.repeat(1000), 'utf8')
+    writeFileSync(join(dir, 'index.md'), '字'.repeat(3000), 'utf8')
+    const caps = allocateBootBudget(dir, { files: ['SOUL.md', 'MEMORY.md', 'index.md'], total: 12000 })
+    assert.equal(caps.get('MEMORY.md'), 1000, 'a short CJK file returns its unused share to the pool')
+    assert.equal(caps.get('index.md'), 3000, 'index keeps its full size')
+    assert.equal(caps.get('SOUL.md'), 6000, 'the long CJK file receives the returned pool')
+    const block = renderBootBlock(dir, { bootMaxChars: 12000 })
+    assert.ok(!block.includes('已截断'), 'a CJK store that fits the budget must not be truncated')
+    assert.ok(block.length <= 12000, `block is ${block.length} chars`)
+  } finally {
+    rmSync(dir, { recursive: true, force: true })
+  }
+})
+
+test('CJK files below the even share do not swallow the pool', () => {
+  // The user-reported shape: 2141 / 3979 / 2744 characters but 6.4k / 11.9k /
+  // 8.2k bytes. Byte sizing sees every file as larger than the 4000-char even
+  // share and hands each one 4000, so the pool is gone and one of them can
+  // never receive the surplus.
+  const dir = mkdtempSync(join(tmpdir(), 'memory-budget-cjk-'))
+  try {
+    writeFileSync(join(dir, 'SOUL.md'), '字'.repeat(2141), 'utf8')
+    writeFileSync(join(dir, 'MEMORY.md'), '字'.repeat(3979), 'utf8')
+    writeFileSync(join(dir, 'index.md'), '字'.repeat(2744), 'utf8')
+    const caps = allocateBootBudget(dir, { files: ['SOUL.md', 'MEMORY.md', 'index.md'], total: 12000 })
+    assert.equal(caps.get('SOUL.md'), 2141)
+    assert.equal(caps.get('MEMORY.md'), 3979)
+    assert.equal(caps.get('index.md'), 2744)
+    const block = renderBootBlock(dir, { bootMaxChars: 12000 })
+    assert.ok(!block.includes('已截断'))
+  } finally {
+    rmSync(dir, { recursive: true, force: true })
+  }
+})
+
 test('boot.js stays dependency-free (node: builtins only)', () => {
   const source = readFileSync(new URL('../lib/boot.js', import.meta.url), 'utf8')
   const imports = [...source.matchAll(/^import\s+.*?from\s+'([^']+)'/gm)].map((m) => m[1])

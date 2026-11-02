@@ -2,6 +2,20 @@
 
 所有记录跟随 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/) 风格；版本号与 `package.json` 保持一致。
 
+## [0.13.3] - 2026-11-02
+
+### Fixed（boot 预算单位：字节 vs 字符）
+
+- **中文 / 日文 / 韩文记忆库的 boot 文件被系统性低估预算**：`allocateBootBudget()` 用 `statSync().size`（UTF-8 字节）判断文件大小，`readCapped()` 却按字符 `slice()` 截断。中文 1 字 = 3 字节，于是每个 CJK 文件都被判成「超过均分额度」，cap 被抬到 `total/3`，pool 提前耗尽、短文件退回的余量永远不回流，真正长的文件被无谓截断。实测（12000 预算、`字` 每字 3 字节）：6000 字符的 SOUL 被截到 4000，而此时预算还有 2000 字符空闲。
+- 修复：`sizeOf()` 改为读取内容取 `.length`（字符），与 `readCapped` 及全仓其它口径（insights / checkup / doctor 均按字符）统一；同一 `allocateBootBudget()` 调用内缓存尺寸，读盘次数不增加量级。
+- 影响面：英文库 1 字节 ≈ 1 字符，行为不变；CJK 库恢复按字符分配，短文件退回的余量可以回流给真正长的文件。
+- **不变的部分**：`readCapped` 的截断提示、`renderBootBlock` 的总量兜底、`readTailCapped`（log）本来就是字符口径，未改动。
+
+### Tests
+
+- `boot-budget` 新增 2 条 CJK 用例：`字` × 6000/1000/3000（长文件拿到回流、不截断）；用户报告形状 `字` × 2141/3979/2744（短文件不再虚高吃 pool）。
+- 全量 **262/262 通过**（0.13.2 基线 260 + 2）；`node scripts/memory.mjs --self-test` PASS。
+
 ## [0.13.2] - 2026-10-30
 
 ### Fixed（reviewer 复核尾巴 + 结构修正）
