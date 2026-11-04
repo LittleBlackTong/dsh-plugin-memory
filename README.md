@@ -277,7 +277,7 @@ The test suite (`node --test`) currently holds **260 tests**, and CI (`.github/w
 
 ![dsh-plugin-memory WeChat group](https://raw.githubusercontent.com/LittleBlackTong/dsh-plugin-memory/main/assets/wechat-group.png)
 
-> The QR code is valid until **2026-11-11**. If it has expired, open an issue and I'll refresh it.
+> WeChat group QR codes expire every 7 days. If the code no longer works, open an issue (or ask in the group) and I'll refresh it.
 
 ## License
 

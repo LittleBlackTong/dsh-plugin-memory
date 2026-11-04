@@ -2,6 +2,12 @@
 
 所有记录跟随 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/) 风格；版本号与 `package.json` 保持一致。
 
+## [0.15.2] - 2026-11-04
+
+### Docs
+
+- **更换 README 微信群二维码**为新的蓝色风格码（`assets/wechat-group.png`，600×600）；说明改为「二维码每 7 天过期，失效后提 issue 更新」，不再写死日期（避免新码有效期与旧文案不一致）。
+
 ## [0.15.1] - 2026-11-04
 
 ### Docs

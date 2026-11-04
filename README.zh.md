@@ -283,7 +283,7 @@ node scripts/memory.mjs --self-test   # 冒烟测试（无需安装依赖）
 
 ![dsh-plugin-memory 微信群](https://raw.githubusercontent.com/LittleBlackTong/dsh-plugin-memory/main/assets/wechat-group.png)
 
-> 二维码有效期到 **2026-11-11**；过期后请提 issue，我会更新。
+> 微信群二维码每 7 天过期一次；失效后请提 issue（或在群里说一声），我会更新。
 
 ## License
 
