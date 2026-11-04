@@ -95,7 +95,7 @@ test('works without a webServer (headless): config-only, boot + skill registered
   const dispose = plugin(ctx, CFG)
   assert.deepEqual(calls.map(([service]) => service), ['systemPrompt', 'skills'])
   assert.deepEqual(disposed, [])
-  assert.deepEqual(injects.map((entry) => entry.deps), [['webServer']])
+  assert.deepEqual(injects.map((entry) => entry.deps), [['commands'], ['webServer']])
   dispose()
   assert.deepEqual(disposed, ['systemPrompt', 'skills'])
 })
@@ -141,6 +141,8 @@ test('registers the config route and GET serves the resolved config', async () =
     toneIntensity: 'low',
     growthRecapEnabled: true,
     growthRecapIntervalDays: 7,
+    // 0.14.0: per-session gate — workspaces that default to memory off.
+    disabledWorkspaces: [],
   })
   dispose()
 })

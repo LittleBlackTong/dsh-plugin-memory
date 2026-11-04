@@ -34,6 +34,7 @@ dsh plugin --profile <profile> add dsh-plugin-memory
 ## 特性
 
 - **开机强制注入（带路由表保护）**：插件通过 `ctx.systemPrompt.context()` 把记忆 boot 块（`SOUL.md` 人格 + `MEMORY.md` 协议 + `index.md` 目录 + 最近动态）注入会话上下文。宿主按投影去重：记忆不变就不重复注入，变化时新快照自动取代旧的——这是"新会话必先加载记忆"的**硬保障**，不需要模型碰运气调技能。总预算是 `bootMaxChars`，**按文件分配**：每个文件先拿一份均分（受实际大小封顶），剩余额度优先给 `index.md`、再给尚有内容未注入的文件——所以记忆库长大时，目录的尾部不会先被截掉（详见「boot 预算分配」）。默认还带**两道礼貌闸门**：`deferUntilUserSpeaks`（用户开口后才注入）与 `activeSessionOnly`（只注入当前激活会话），见「配置」。
+- **按会话开关（v0.14.0）**：不是每段对话都该被记住。输入框工具行左侧的 chip、`/memory on|off|status` 命令、设置面板里的开关，三者改的是同一个会话级 gate：关闭后**本会话不注入 boot 块、不发 digest/追忆提醒、不盖 `last_access`**——记忆文件不删，其它会话不受影响。整个项目可以设成默认关（`disabledWorkspaces`，按会话 cwd 的路径边界匹配，会话级 override 仍然优先）；每个会话的选择会记住 `sessionTtlDays`（7）天，恢复的会话保持原选择。命令面与 chip 共用 `/api/memory/session`，键盘用户与鼠标用户不会看到两套状态。`memory` 技能仍是全局注册（宿主无法按会话停技能）；boot 不注入后 agent 上下文里没有记忆协议——这个边界在文档里写清。
 - **last_access 自动戳记**：`MEMORY.md` 的 salience 衰减规则依赖 `last_access`，而它以前纯粹靠自觉——模板里有字段、规则里提到它，但没有任何代码去写它，于是每个页面都原地变老、衰减表形同虚设。现在会话收到第一条真实用户消息时，插件会把 boot 块**实际注入过的页面**（`SOUL.md` / `MEMORY.md` / `index.md` + 目录里被引用到的页）戳成当天，每会话一次、按天幂等，只改 `last_access` 一行；`dsh-memory touch <pages...>` 可手动补记，`trackPageAccess: false` 可关闭。
 - **SOUL.md 铸魂**：安装后首要任务是和用户对话定义灵魂（名字、性格、价值观、语气、边界）、确认身份与关系（`BOOTSTRAP.md` 清单驱动，complete 前优先于常规任务）。
 - **铸魂自动引导**：记忆库还没有灵魂（`BOOTSTRAP.md` 非 complete，或 `SOUL.md` 仍是占位模板）时，boot 块会自动前置一段第一人称引导词——「我的首要任务是确认我是谁，还有你是谁：我叫什么名字、怎么称呼你、你我是什么关系、我该是什么样的性格」——像 OpenClaw 初始化那样，**由 agent 在对话里主动发起铸魂**，逐项问、逐项写回，而不是等用户来喂。铸魂完成后引导词自动消失，零开销。
@@ -144,13 +145,16 @@ dsh plugin --profile <profile> add dsh-plugin-memory
 | `toneIntensity` | `low` | `low` / `medium` / `off`（off = 纯工程师语气） |
 | `growthRecapEnabled` | `true` | 每周成长回顾（走 recall 通道） |
 | `growthRecapIntervalDays` | `7` | 两次成长回顾间隔天数 |
+| `disabledWorkspaces` | `[]` | 默认关闭记忆的工作区（按会话 cwd、`~` 展开、路径边界匹配）；会话级 override 仍然优先；面板可热改 |
+| `sessionStateFile` | `<dshHome>/memory-sessions.json` | 会话级 override 的落盘位置（composition） |
+| `sessionTtlDays` | `7` | 会话 override 的有效天数，过期清理（composition） |
 | `autoCommit` | `true` | 记忆库 git 自动提交开关（composition） |
 | `autoCommitQuietSeconds` | `60` | 变更静默多久后提交（防抖） |
 | `autoCommitIntervalSeconds` | `60` | 变更轮询间隔 |
 
 ### 设置面板（热改）
 
-`enabled` / `memoryDir` / `autoInject` / `deferUntilUserSpeaks` / `activeSessionOnly` / `registerSkill` / `recallEnabled` / `recallIntervalMinMinutes` / `recallIntervalMaxMinutes` / `recallMaxPerSession` / `proactiveCooldownSeconds` / `toneGuideEnabled` / `toneIntensity` / `growthRecapEnabled` / `growthRecapIntervalDays` 十五项在 DSH 设置页的「记忆 / Memory」区块中可改（跟随语言），**即时生效**：boot 注入、两道礼貌闸门、技能注册、主动追忆（含随机间隔与次数）、发言权仲裁、语气段与每周成长回顾随修改立即生效；记忆目录切换时自动为新目录初始化脚手架（`scaffold: true` 时）。其余键（`bootFiles` / `bootMaxChars` / `bootFileBudgets` / `trackPageAccess` / `scaffold` / `configFile` / `digestNudge*` / `autoCommit*`）只在 composition 配置层生效，改完需重启。
+`enabled` / `memoryDir` / `autoInject` / `deferUntilUserSpeaks` / `activeSessionOnly` / `registerSkill` / `recallEnabled` / `recallIntervalMinMinutes` / `recallIntervalMaxMinutes` / `recallMaxPerSession` / `proactiveCooldownSeconds` / `toneGuideEnabled` / `toneIntensity` / `growthRecapEnabled` / `growthRecapIntervalDays` / `disabledWorkspaces` 十六项在 DSH 设置页的「记忆 / Memory」区块中可改（跟随语言），**即时生效**：boot 注入、两道礼貌闸门、技能注册、主动追忆（含随机间隔与次数）、发言权仲裁、语气段、每周成长回顾与会话级开关随修改立即生效；记忆目录切换时自动为新目录初始化脚手架（`scaffold: true` 时）。其余键（`bootFiles` / `bootMaxChars` / `bootFileBudgets` / `trackPageAccess` / `scaffold` / `configFile` / `sessionStateFile` / `sessionTtlDays` / `digestNudge*` / `autoCommit*`）只在 composition 配置层生效，改完需重启。
 
 旁边还有一个 **「立即回顾」按钮**：它是**控制动作，不是配置项**——让插件立刻发一次成长回顾。仍尊重发言权仲裁（别的插件在说话就让位）、本周没有新内容就不发、即使 `recallEnabled` 关闭也能用，并在面板里给出结果（回顾中 / 已发送 / 让位 / 会话正忙 / 没有新内容 / 已关闭 / 失败），结果提示 5 秒后自动消失。
 

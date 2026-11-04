@@ -243,8 +243,8 @@ test('the client half injects the locale service and registers the memory dictio
 test('the settings section declares the locale namespace and its label follows the app language', () => {
   const { moduleExports } = browserHarness()
   const first = applyClient(moduleExports, { language: 'zh' })
-  assert.deepEqual(first.slots.injections, ['settings.section'])
-  assert.equal(first.slots.registrations.length, 1)
+  assert.deepEqual(first.slots.injections, ['settings.section', 'conversation.input.left'])
+  assert.equal(first.slots.registrations.length, 2)
   const { entry, component } = first.slots.registrations[0]
   assert.equal(entry.name, 'settings.section')
   assert.equal(entry.id, 'memory')
@@ -253,6 +253,13 @@ test('the settings section declares the locale namespace and its label follows t
   assert.equal(typeof component, 'function')
   assert.equal(entry.label(), '记忆', 'Chinese app language yields 「记忆」')
   assert.equal(entry.label(), libSectionLabel('zh'), 'the inlined label agrees with lib/settings-nav-icon.js')
+
+  // 0.14.0: the composer chip is the in-session entry point for the same gate.
+  const chip = first.slots.registrations[1]
+  assert.equal(chip.entry.name, 'conversation.input.left')
+  assert.equal(chip.entry.id, 'memory-session-toggle')
+  assert.equal(chip.entry.locale, 'memory')
+  assert.equal(typeof chip.component, 'function')
 
   first.localeState.active = 'en'
   assert.equal(entry.label(), 'Memory', 'English app language yields "Memory"')
@@ -343,7 +350,7 @@ test('teardown removes the mark, the stylesheet and the observer', () => {
   const { moduleExports, rows, styles, observers } = browserHarness()
   const { effects } = applyClient(moduleExports)
   assert.ok(claimedTexts(rows).length > 0)
-  assert.equal(styles.length, 1)
+  assert.equal(styles.length, 2, 'nav-icon style + chip hover style')
   for (const effect of effects) effect.dispose()
   assert.equal(claimedTexts(rows).length, 0)
   assert.equal(styles.length, 0)
@@ -352,6 +359,7 @@ test('teardown removes the mark, the stylesheet and the observer', () => {
   const labels = effects.map((effect) => effect.label)
   assert.ok(labels.includes('memory: dictionaries'))
   assert.ok(labels.includes('memory: settings nav icon'))
+  assert.ok(labels.includes('memory: chip styles'))
 })
 
 // ── 4. t seat / fallback ─────────────────────────────────────────────────

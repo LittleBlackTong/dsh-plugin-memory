@@ -2,6 +2,22 @@
 
 所有记录跟随 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/) 风格；版本号与 `package.json` 保持一致。
 
+## [0.14.0] - 2026-11-04
+
+### Added（0.14.0：会话级记忆开关）
+
+- **按会话开关**：`/memory on|off|status`（宿主命令面，自动进 `/` 与 `+` 菜单）、输入框工具行左侧的 chip（`conversation.input.left`）、设置面板「会话与工作区」三处共用同一个 gate：关闭后**本会话不注入 boot 块、不发 digest/追忆提醒、不盖 `last_access`**（记忆文件不删、其它会话不受影响）。
+- **工作区默认关**：`disabledWorkspaces`（按会话 cwd、`~` 展开、路径边界匹配）；会话级 override 优先于工作区默认；面板「此工作区默认关闭」用当前活跃会话的 cwd 写入。
+- **会话状态持久化**：`<dshHome>/memory-sessions.json`（`sessionStateFile` / `sessionTtlDays: 7`），恢复的会话保持选择，过期条目自动清理。
+- 新 HTTP 路由 `GET/POST /api/memory/session`（GET 读状态、POST 切换；缺 sessionId 时回退到活跃会话）；`ActivityTracker.activeId()`；新模块 `lib/session-gate.js`（纯 Node，可单测）。
+- **chip 形态（当日调整）**：输入框左侧 chip 从「点击盲切」改为**下拉菜单**——「本会话 开/关」与「此工作区默认 开/关」两组单选，Host 拒绝/读不到状态时在菜单里显示原因；图标由 🧠 emoji 换成与设置侧栏同源的 14px brain-circuit SVG。
+- 边界（文档已写清）：`memory` 技能仍全局注册，宿主无法按会话停技能；关闭后 agent 上下文里没有记忆协议。
+
+### Tests
+
+- `session-gate` 11 条（默认 / 会话 override / 工作区默认 / 优先级 / TTL / 持久化 / 路径边界 / 损坏文件 / toggle）；`session-control` 6 条集成（命令面、路由、boot 门控、活跃会话回退）；`session-ui` 4 条客户端渲染（chip 两态、英文文案、面板加载态、路由常量）；更新 `plugin-metadata`（commands 可选注入 + 新配置字段）与 `client-i18n`（chip slot 声明）。
+- 全量 **283/283**（0.13.3 基线 262 + 21）；`npm test` self-test PASS。
+
 ## [0.13.3] - 2026-11-02
 
 ### Fixed（boot 预算单位：字节 vs 字符）

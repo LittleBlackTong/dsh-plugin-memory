@@ -71,6 +71,16 @@ export interface MemoryConfig {
   growthRecapEnabled?: boolean
   /** Days between growth recaps. Default `7`. */
   growthRecapIntervalDays?: number
+  /**
+   * Workspaces (by session cwd, `~` expanded, path-boundary match) that
+   * default to memory **off**. A per-session override still wins.
+   * Default `[]`.
+   */
+  disabledWorkspaces?: string[]
+  /** Where per-session overrides live (default `<dshHome>/memory-sessions.json`). */
+  sessionStateFile?: string
+  /** Days a session override stays valid before it is pruned. Default `7`. */
+  sessionTtlDays?: number
   /** Auto-commit the store's git history after a quiet period. Default `true`. */
   autoCommit?: boolean
   /** Seconds of quiet before an auto-commit. Default `60`. */
@@ -94,6 +104,9 @@ export const GRAPH_ROUTE_PATH: '/api/memory/graph'
 /** Manual control route (`growth-now`): deliver one recap on demand. */
 export const CONTROL_ROUTE_PATH: '/api/memory/control'
 
+/** Per-session memory gate: read state (GET) / toggle it (POST). */
+export const SESSION_ROUTE_PATH: '/api/memory/session'
+
 /** User-editable settings (composition config is the base layer). */
 export interface MemorySettings {
   enabled?: boolean
@@ -111,6 +124,7 @@ export interface MemorySettings {
   toneIntensity?: 'low' | 'medium' | 'off'
   growthRecapEnabled?: boolean
   growthRecapIntervalDays?: number
+  disabledWorkspaces?: string[]
 }
 
 /** Schemastery schema for {@link MemorySettings}. */
