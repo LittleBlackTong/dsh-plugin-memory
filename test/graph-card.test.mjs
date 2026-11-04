@@ -107,35 +107,32 @@ test('the inlined clamp treats infinities as directions, NaN as missing', () => 
   assert.equal(clampToBox(Number.POSITIVE_INFINITY, 0, 100), 100)
 })
 
-test('GraphView renders one group per node and one line per edge', () => {
-  const seam = loadClient()
-  const tree = seam.GraphView({ graph })
-  const lines = findAll(tree, 'line')
-  const groups = findAll(tree, 'g')
-  assert.equal(lines.length, graph.edges.length)
-  assert.equal(groups.length, graph.nodes.length)
-  // Drag wiring lives on the group, so dot and label travel together.
-  for (const group of groups) {
-    assert.equal(typeof group.props.onPointerDown, 'function')
-    assert.equal(typeof group.props.onPointerMove, 'function')
-    assert.equal(typeof group.props.onPointerUp, 'function')
-    assert.match(group.props.transform, /^translate\(-?\d+(\.\d+)? -?\d+(\.\d+)?\)$/)
+/** Walk an element tree, collecting all text children (for HUD assertions). */
+function collectText(node, out = []) {
+  if (node === null || node === undefined) return out
+  if (typeof node === 'string' || typeof node === 'number') {
+    out.push(String(node))
+    return out
   }
-})
+  if (Array.isArray(node)) {
+    for (const child of node) collectText(child, out)
+    return out
+  }
+  collectText(node.children, out)
+  return out
+}
 
-test('edges are drawn from live positions, not stale node coordinates', () => {
+test('GraphView renders one 3D canvas plus the title and stats (no SVG nodes)', () => {
   const seam = loadClient()
   const tree = seam.GraphView({ graph })
-  const lines = findAll(tree, 'line')
-  const byId = new Map(graph.nodes.map((n) => [n.id, n]))
-  for (const line of lines) {
-    assert.ok(line.props.x1 >= 0 && line.props.x1 <= seam.GRAPH_W)
-    assert.ok(line.props.y1 >= 0 && line.props.y1 <= seam.GRAPH_H)
-  }
-  // With no drag in flight, endpoints equal the server coordinates.
-  const edge = graph.edges[0]
-  const expected = byId.get(edge.source)
-  assert.equal(lines[0].props.x1, expected.x)
+  const canvases = findAll(tree, 'canvas')
+  assert.equal(canvases.length, 1, 'the 3D scene is a single canvas')
+  assert.equal(findAll(tree, 'circle').length, 0, 'nodes are no longer SVG circles')
+  assert.equal(findAll(tree, 'line').length, 0, 'edges are no longer SVG lines')
+  const texts = collectText(tree)
+  assert.ok(texts.some((text) => text.includes('记忆图谱')), `title missing: ${texts.join(' | ')}`)
+  // The stats line must mention the graph counts so the card is still informative.
+  assert.ok(texts.some((text) => text.includes('页') || text.includes('节点')), `stats missing: ${texts.join(' | ')}`)
 })
 
 test('an empty graph renders nothing rather than an empty card', () => {
@@ -185,4 +182,42 @@ test('screen points map to graph points through the current view', () => {
   const centre = seam.toGraphPointIn(zoomed, rect, 10 + 280, 20 + 170)
   assert.ok(Math.abs(centre.x - 280) < 1e-6)
   assert.ok(Math.abs(centre.y - 170) < 1e-6)
+})
+
+test('the inlined 3D maths matches lib/graph-3d.js (no drift between panel and module)', async () => {
+  const seam = loadClient()
+  const lib = await import('../lib/graph-3d.js')
+  const nodes = [
+    { id: 'a', type: 'project' },
+    { id: 'b', type: 'skill' },
+    { id: 'c', type: 'identity' },
+    { id: 'd', type: 'meta' },
+  ]
+  const mine = seam.graph3dSphere(nodes, 120)
+  const theirs = lib.spherePositions(nodes, { radius: 120 })
+  const plain = (v) => JSON.parse(JSON.stringify(v))
+  assert.deepEqual(plain(mine), plain(theirs), 'sphere placement must agree')
+  for (const point of mine) {
+    const mineProjection = seam.graph3dProject(point, { yaw: 0.4, pitch: -0.2, zoom: 1.2 })
+    const theirProjection = lib.projectPoint(point, {
+      yaw: 0.4, pitch: -0.2, zoom: 1.2, radius: 250, focal: 900, camera: 340, width: 560, height: 400,
+    })
+    for (const key of ['x', 'y', 'z', 'scale', 'depth']) {
+      assert.ok(Math.abs(mineProjection[key] - theirProjection[key]) < 1e-9, `${point.id}.${key}`)
+    }
+  }
+  const points = [{ id: 'a', x: 10, y: 10 }, { id: 'b', x: 30, y: 10 }]
+  assert.equal(seam.graph3dHit(points, 11, 10, (p) => (p.id === 'a' ? 8 : 3)).id, 'a')
+  assert.equal(seam.graph3dHit(points, 100, 100, () => 5), null)
+})
+
+test('isLightColor picks the right drawing style for the panel background', () => {
+  const seam = loadClient()
+  assert.equal(seam.isLightColor('#ffffff'), true)
+  assert.equal(seam.isLightColor('rgb(246, 248, 250)'), true)
+  assert.equal(seam.isLightColor('rgba(255, 255, 255, 0.9)'), true)
+  assert.equal(seam.isLightColor('#0b1020'), false)
+  assert.equal(seam.isLightColor('rgb(20, 24, 34)'), false)
+  assert.equal(seam.isLightColor('rgba(0, 0, 0, 0)'), false)
+  assert.equal(seam.isLightColor(undefined), false)
 })

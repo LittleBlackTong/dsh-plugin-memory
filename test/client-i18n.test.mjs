@@ -369,7 +369,7 @@ test('a missing t seat falls back to Chinese without crashing', () => {
   const seam = moduleExports.__test
   assert.equal(seam.fallbackT('loading'), '读取配置中…')
   assert.equal(seam.fallbackT('missing.key'), 'missing.key', 'unknown keys degrade to the key, never throw')
-  assert.equal(seam.fallbackT('graphRelations', { count: 2 }), '2 条关系')
+  assert.equal(seam.fallbackT('graph3dNeighbours', { count: 2 }), '邻居 2 个')
 
   const tree = seam.MemoryForm({})
   assert.ok(collectText(tree).includes('读取配置中…'))
@@ -528,15 +528,15 @@ test('the graph card renders its copy and type legend in English', () => {
   }
   const leftovers = texts.filter((text) => CJK.test(text))
   assert.deepEqual(leftovers, [], 'the English graph must not leak Chinese copy')
-  // The svg carries a translated accessible name.
-  const svg = findElement(seam.GraphView({ graph, t }), (node) => node.type === 'svg')
-  assert.equal(svg?.props['aria-label'], 'Memory graph')
+  // The canvas carries a translated accessible name.
+  const canvas = findElement(seam.GraphView({ graph, t }), (node) => node.type === 'canvas')
+  assert.equal(canvas?.props['aria-label'], 'Memory graph')
 
   // Chinese fallback still works when no t seat is available.
   const zhTexts = collectText(seam.GraphView({ graph }))
   assert.ok(zhTexts.includes('记忆图谱'))
   assert.ok(zhTexts.includes('━ 页间互链'))
-  assert.equal(findElement(seam.GraphView({ graph }), (node) => node.type === 'svg')?.props['aria-label'], '记忆图谱')
+  assert.equal(findElement(seam.GraphView({ graph }), (node) => node.type === 'canvas')?.props['aria-label'], '记忆图谱')
 })
 
 test('type labels translate known types and keep unknown ones verbatim', () => {
