@@ -276,7 +276,14 @@ node scripts/memory.mjs --self-test   # 冒烟测试（无需安装依赖）
 - [ ] GitHub Actions CI（跑 `--self-test` 与 lint）
 - [ ] 记忆加密存储选项
 
-欢迎在 [Issues](https://github.com/LittleBlackTong/dsh-plugin-memory/issues) 里提需求、报 bug、交 PR。
+## 反馈与交流
+
+- **报 bug / 提需求 / 交 PR**：[提 issue](https://github.com/LittleBlackTong/dsh-plugin-memory/issues)——这是长期有效的渠道。
+- **微信群**：扫下面的二维码加入「dsh-plugin-memory 插件沟通」群，问题、反馈、PR 协调都在群里。
+
+![dsh-plugin-memory 微信群](https://raw.githubusercontent.com/LittleBlackTong/dsh-plugin-memory/main/assets/wechat-group.png)
+
+> 二维码有效期到 **2026-11-11**；过期后请提 issue，我会更新。
 
 ## License
 

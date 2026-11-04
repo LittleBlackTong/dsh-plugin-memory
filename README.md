@@ -270,7 +270,14 @@ The test suite (`node --test`) currently holds **260 tests**, and CI (`.github/w
 - [ ] GitHub Actions CI (running `--self-test` and lint)
 - [ ] Encrypted memory storage option
 
-Requests, bug reports, and pull requests are welcome in [Issues](https://github.com/LittleBlackTong/dsh-plugin-memory/issues).
+## Feedback & community
+
+- **Bug reports / feature requests / PRs**: [open an issue](https://github.com/LittleBlackTong/dsh-plugin-memory/issues) — that is the durable channel and it always works.
+- **WeChat group**: scan the QR code below to join the **「dsh-plugin-memory 插件沟通」** group — questions, feedback and PR coordination all happen there.
+
+![dsh-plugin-memory WeChat group](https://raw.githubusercontent.com/LittleBlackTong/dsh-plugin-memory/main/assets/wechat-group.png)
+
+> The QR code is valid until **2026-11-11**. If it has expired, open an issue and I'll refresh it.
 
 ## License
 

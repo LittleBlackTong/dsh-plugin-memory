@@ -2,6 +2,12 @@
 
 所有记录跟随 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/) 风格；版本号与 `package.json` 保持一致。
 
+## [0.15.1] - 2026-11-04
+
+### Docs
+
+- **README 新增「反馈与交流 / Feedback & community」章节**（中英）：issue 链接 + 「dsh-plugin-memory 插件沟通」微信群二维码（`assets/wechat-group.png`，GitHub raw 绝对 URL，npm 页面同样可见），并标注二维码有效期；过期后以 issue 为准。
+
 ## [0.15.0] - 2026-11-04
 
 ### Added（0.15.0：快速铸魂 + 未铸魂提醒）
