@@ -1,11 +1,11 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { Readable } from 'node:stream'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
-import plugin, { SESSION_ROUTE_PATH } from '../lib/index.js'
+import plugin, { SESSION_ROUTE_PATH, SOUL_ROUTE_PATH } from '../lib/index.js'
 
 /** A tiny boot store: enough for renderBootBlock to produce a block. */
 function makeStore() {
@@ -288,6 +288,50 @@ test('the session route falls back to the active session, or says no-session', a
     const active = await routeCall(route, 'GET', '/api/memory/session')
     assert.equal(JSON.parse(active.body).ok, true)
     assert.equal(JSON.parse(active.body).sessionId, 's1')
+    dispose()
+  } finally {
+    rmSync(store, { recursive: true, force: true })
+  }
+})
+
+test('the soul route reads defaults and saves a profile (marking BOOTSTRAP complete)', async () => {
+  const store = makeStore()
+  writeFileSync(join(store, 'BOOTSTRAP.md'), '---\nstatus: pending\n---\n\n# BOOTSTRAP\n', 'utf8')
+  try {
+    const { ctx, calls, injects, makeAgent } = makeCtx()
+    const dispose = plugin(ctx, BASE_CONFIG(store))
+    const routes = makeWebPlane(ctx, injects)
+    const route = routes.get(SOUL_ROUTE_PATH)
+    assert.ok(route !== undefined, 'soul route is registered')
+
+    const initial = await routeCall(route, 'GET', '/api/memory/soul')
+    assert.equal(initial.status, 200)
+    const initialBody = JSON.parse(initial.body)
+    assert.equal(initialBody.profile.managed, false)
+    assert.equal(initialBody.profile.agentName, '助手', 'new users get a generic default, not someone else\'s name')
+    assert.equal(initialBody.needsBootstrap, true, 'the store is still being forged')
+
+    const saved = await routeCall(route, 'POST', '/api/memory/soul', {
+      agentName: '小蓝',
+      userName: '阿周',
+      summary: '外松内紧，事实优先。',
+    })
+    assert.equal(saved.status, 200)
+    const savedBody = JSON.parse(saved.body)
+    assert.equal(savedBody.profile.managed, true)
+    assert.equal(savedBody.bootstrapChanged, true)
+    assert.match(readFileSync(join(store, 'BOOTSTRAP.md'), 'utf8'), /^status: complete$/m)
+    const after = await routeCall(route, 'GET', '/api/memory/soul')
+    assert.equal(JSON.parse(after.body).needsBootstrap, false, 'saving ends the forging phase')
+
+    const agent = makeAgent('s1', '/Users/x/work')
+    ctx.emit('agent/created', { agent })
+    const block = bootTextOf(calls)({ agent })
+    assert.match(block, /小蓝/)
+    assert.doesNotMatch(block, /铸魂阶段/, 'the forging nudge disappears after saving')
+
+    const bad = await routeCall(route, 'POST', '/api/memory/soul', { agentName: '', userName: '', summary: '' })
+    assert.equal(bad.status, 400)
     dispose()
   } finally {
     rmSync(store, { recursive: true, force: true })

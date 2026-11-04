@@ -184,6 +184,13 @@ test('boot.js stays dependency-free (node: builtins only)', () => {
   const imports = [...source.matchAll(/^import\s+.*?from\s+'([^']+)'/gm)].map((m) => m[1])
   assert.ok(imports.length > 0)
   for (const specifier of imports) {
-    assert.ok(specifier.startsWith('node:'), `unexpected dependency: ${specifier}`)
+    assert.ok(specifier.startsWith('node:') || specifier.startsWith('./'), `unexpected dependency: ${specifier}`)
+  }
+  // Local siblings must be equally dependency-free (no host packages).
+  for (const specifier of imports.filter((s) => s.startsWith('./'))) {
+    const localSource = readFileSync(new URL(`../lib/${specifier.replace(/^\.\//, '')}`, import.meta.url), 'utf8')
+    for (const match of localSource.matchAll(/^import\s+.*?from\s+'([^']+)'/gm)) {
+      assert.ok(match[1].startsWith('node:'), `unexpected dependency in ${specifier}: ${match[1]}`)
+    }
   }
 })

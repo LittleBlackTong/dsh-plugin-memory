@@ -107,6 +107,9 @@ export const CONTROL_ROUTE_PATH: '/api/memory/control'
 /** Per-session memory gate: read state (GET) / toggle it (POST). */
 export const SESSION_ROUTE_PATH: '/api/memory/session'
 
+/** Basic soul profile (managed SOUL.md block): read fields (GET) / save (POST). */
+export const SOUL_ROUTE_PATH: '/api/memory/soul'
+
 /** User-editable settings (composition config is the base layer). */
 export interface MemorySettings {
   enabled?: boolean
