@@ -2,6 +2,12 @@
 
 所有记录跟随 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/) 风格；版本号与 `package.json` 保持一致。
 
+## [0.17.4] - 2026-11-05
+
+### Docs
+
+- **移除 README 的微信群二维码入口**（中英）：反馈统一走 GitHub Issue，不再引导加群；二维码图片文件保留但不再引用。
+
 ## [0.17.3] - 2026-11-05
 
 ### Added

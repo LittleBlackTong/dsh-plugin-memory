@@ -112,10 +112,7 @@ Zero build: `lib/` is runtime code as-is. CI runs both commands.
 
 ## Feedback & community
 
-- **Bugs / features / PRs**: [open an issue](https://github.com/LittleBlackTong/dsh-plugin-memory/issues) — the durable channel.
-- **WeChat group**「dsh-plugin-memory 插件沟通」: scan below (QR codes expire ~7 days; open an issue if it no longer works).
-
-![dsh-plugin-memory WeChat group](https://raw.githubusercontent.com/LittleBlackTong/dsh-plugin-memory/main/assets/wechat-group.png)
+- **Bugs / features / PRs**: [open an issue](https://github.com/LittleBlackTong/dsh-plugin-memory/issues) — that is where feedback and questions are tracked.
 
 ## License
 
