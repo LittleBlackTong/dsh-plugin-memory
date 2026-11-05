@@ -113,6 +113,9 @@ node --test                          # 全量测试
 ## 反馈与交流
 
 - **报 bug / 提需求 / 交 PR**：[提 issue](https://github.com/LittleBlackTong/dsh-plugin-memory/issues)——反馈与问题都走这里。
+- **微信群**「dsh-plugin-memory 插件沟通」：扫下面的码（二维码约 7 天过期；失效请提 issue）。
+
+![dsh-plugin-memory 微信群](https://raw.githubusercontent.com/LittleBlackTong/dsh-plugin-memory/main/assets/wechat-group.png)
 
 ## License
 

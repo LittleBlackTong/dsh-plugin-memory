@@ -2,6 +2,12 @@
 
 所有记录跟随 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/) 风格；版本号与 `package.json` 保持一致。
 
+## [0.17.5] - 2026-11-05
+
+### Docs
+
+- **README 恢复微信群入口**（中英）：换成新群二维码（`assets/wechat-group.png`），并注明约 7 天过期、失效提 issue；GitHub Issue 仍是长期渠道。
+
 ## [0.17.4] - 2026-11-05
 
 ### Docs
