@@ -2,6 +2,17 @@
 
 所有记录跟随 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/) 风格；版本号与 `package.json` 保持一致。
 
+## [0.16.1] - 2026-11-05
+
+### Fixed
+
+- **移除运行时硬编码姓名**（用户反馈：其他用户看到「小蓝/阿周」而不是自己 SOUL 里的称呼）：`lib/recall-nudge.js` 的「主动追忆」「成长回顾」文案、`lib/tone.js` 的语气规则、设置页「人格基础」占位符（`例如：小蓝/阿周`）、`lib/soul.js` 注释示例全部清除。追忆与成长回顾现在从 `readSoulProfile(memoryDir)` 读取当前人格名（未铸魂时回退通用「助手 / 你」）。
+- 新增 `test/no-hardcoded-names.test.mjs` 防回归：扫描 `lib/*.js`，出现「小蓝 / 阿周 / Small-Blue」即失败。
+
+### Tests
+
+- 全量 **312/312** + self-test PASS（新增 2 条：动态人格名、防硬编码回归）。
+
 ## [0.16.0] - 2026-11-04
 
 ### Changed（0.16.0：记忆图谱改为 3D 球面）

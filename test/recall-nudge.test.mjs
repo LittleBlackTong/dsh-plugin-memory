@@ -6,6 +6,7 @@ import test from 'node:test'
 
 import {
   RecallNudge,
+  buildGrowthRecapNudgeMessage,
   buildRecallNudgeMessage,
   listRecallCandidates,
   randomIntervalMs,
@@ -97,11 +98,27 @@ test('buildRecallNudgeMessage has the followup shape the harness expects', () =>
   assert.equal(message.role, 'user')
   assert.equal(message.content.length, 1)
   assert.equal(message.content[0].type, 'text')
-  assert.ok(message.content[0].text.includes('小蓝主动追忆'))
+  assert.ok(message.content[0].text.includes('助手主动追忆'), 'generic fallback when no profile is supplied')
   assert.ok(message.content[0].text.includes('a'))
   // Session format v4 admits only a producer-owned kind; the retired
   // {kind:'plugin', plugin:'memory'} wrapper is rejected at adoption.
   assert.deepEqual(message.source, { kind: 'plugin:memory' })
+})
+
+test('recall and growth copy use the persona names read from SOUL', () => {
+  const profile = { agentName: '大肥鱼', userName: '阿周' }
+  const text = buildRecallNudgeMessage(['a'], profile).content[0].text
+  assert.ok(text.includes('【大肥鱼主动追忆】'), 'heading follows the agent name')
+  assert.ok(text.includes('「大肥鱼」'), 'voice follows the agent name')
+  assert.ok(text.includes('主动对阿周提起'), 'addresses the user by their name')
+  const recap = buildGrowthRecapNudgeMessage('x', profile).content[0].text
+  assert.ok(recap.includes('【大肥鱼成长回顾】'))
+  assert.ok(recap.includes('说给阿周听'))
+  // Never fall back to the plugin author's own names.
+  for (const name of ['小蓝', '阿周']) {
+    assert.ok(!buildRecallNudgeMessage(['a']).content[0].text.includes(name), `no hard-coded ${name}`)
+    assert.ok(!buildGrowthRecapNudgeMessage('x').content[0].text.includes(name), `no hard-coded ${name}`)
+  }
 })
 
 // ── prompt shape (2026-10-08 regression) ───────────────────────────────────
