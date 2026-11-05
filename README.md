@@ -39,6 +39,20 @@ dsh plugin --profile <profile> add dsh-plugin-memory
 - **Health tools** — dashboard, `checkup`, `lint`, `doctor`, automatic `last_access` stamping.
 - **Zero build, bilingual panel, hot-editable config.**
 
+## Screenshots
+
+**Basic soul (quick forging)** — set the agent's name, what it calls you and a baseline persona in one save; the next session uses it, no restart. Chat-forged souls are echoed back from `SOUL.md`.
+
+![Basic soul card](https://raw.githubusercontent.com/LittleBlackTong/dsh-plugin-memory/main/assets/soul-card.png)
+
+**Memory graph (3D)** — a live projection of the store: rotate / wheel-zoom / drag nodes to arrange, search-to-focus (the camera flies to the hit), hover or click to light up the neighbourhood. Select a node to **Reveal in Finder** or **Copy path**; double-click empty space to reset.
+
+![Memory graph](https://raw.githubusercontent.com/LittleBlackTong/dsh-plugin-memory/main/assets/memory-graph.png)
+
+**Settings panel** — sixteen settings apply immediately (per-session switch, boot gates, recall cadence, tone, disabled workspaces…). The health dashboard and the graph sit right below.
+
+![Memory settings panel](https://raw.githubusercontent.com/LittleBlackTong/dsh-plugin-memory/main/assets/settings-panel.png)
+
 ## Cross-platform
 
 **macOS, Windows and Linux are supported.** Path settings expand `~`, `~\`, `%USERPROFILE%` and `$HOME`; CRLF files are parsed as LF and **written back with their own newline style**; *Reveal in Finder* maps to `open -R` (macOS), `explorer /select,` (Windows, space-safe argv) and `xdg-open` (Linux); `disabledWorkspaces` matching is case-insensitive on Windows. Details: [docs/CONFIGURATION.md](docs/CONFIGURATION.md).
@@ -46,8 +60,6 @@ dsh plugin --profile <profile> add dsh-plugin-memory
 ## Configuration
 
 Sixteen hot keys edit live under **Settings → Memory**. The full table, boot-budget rules and composition overrides are in [docs/CONFIGURATION.md](docs/CONFIGURATION.md).
-
-![Memory settings panel](assets/settings-panel.png)
 
 ## CLI
 

@@ -2,6 +2,12 @@
 
 所有记录跟随 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/) 风格；版本号与 `package.json` 保持一致。
 
+## [0.17.2] - 2026-11-05
+
+### Docs
+
+- **README 新增「界面预览 / Screenshots」**：三张真实截图——人格基础（快速铸魂）/ 3D 记忆图谱 / 设置面板——每张配一句功能说明；`settings-panel.png` 更新为新版面板截图，新增 `soul-card.png` 与 `memory-graph.png`。图片用 GitHub raw 绝对 URL，npm 页面同样可显示。
+
 ## [0.17.1] - 2026-11-05
 
 ### Changed（设置面板布局）

@@ -39,6 +39,20 @@ dsh plugin --profile <profile> add dsh-plugin-memory
 - **健康工具** —— 看板、`checkup`、`lint`、`doctor`、自动 `last_access`。
 - **零构建、面板双语、配置热改。**
 
+## 界面预览
+
+**人格基础（快速铸魂）** —— 一次保存我的名字 / 你怎么称呼我 / 基础人格，下次会话直接生效、不用重启；对话铸魂的老库也会从 `SOUL.md` 回显。
+
+![人格基础卡片](https://raw.githubusercontent.com/LittleBlackTong/dsh-plugin-memory/main/assets/soul-card.png)
+
+**记忆图谱（3D）** —— 记忆库的实时投影：旋转 / 滚轮缩放 / 拖节点整理，搜索即飞镜头定位，悬停或点击点亮邻居；选中节点可 **在 Finder 中显示** 或 **复制路径**，双击空白重置。
+
+![记忆图谱](https://raw.githubusercontent.com/LittleBlackTong/dsh-plugin-memory/main/assets/memory-graph.png)
+
+**设置面板** —— 十六项设置即时生效（会话开关、注入闸门、追忆节奏、语气、工作区默认…），健康看板与图谱就在下面。
+
+![记忆设置面板](https://raw.githubusercontent.com/LittleBlackTong/dsh-plugin-memory/main/assets/settings-panel.png)
+
 ## 跨平台（含 Windows）
 
 **macOS、Windows、Linux 都支持。** 路径配置里的 `~`、`~\`、`%USERPROFILE%`、`$HOME` 会自动展开；CRLF 文件按 LF 解析、**写回保留文件自身换行风格**（不会被强行 LF 化）；「在 Finder 中显示」在 macOS 是 `open -R`、Windows 是 `explorer /select,`（参数分开传，含空格路径安全）、Linux 是 `xdg-open`；`disabledWorkspaces` 在 Windows 上大小写不敏感。细节见 [docs/CONFIGURATION.md](docs/CONFIGURATION.md)。
@@ -46,8 +60,6 @@ dsh plugin --profile <profile> add dsh-plugin-memory
 ## 配置
 
 十六个热改项在 **设置 → 记忆** 里即时生效。完整配置表、boot 预算规则与组合层覆盖示例见 [docs/CONFIGURATION.md](docs/CONFIGURATION.md)。
-
-![记忆设置面板](assets/settings-panel.png)
 
 ## CLI
 
