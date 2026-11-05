@@ -186,11 +186,30 @@ test('boot.js stays dependency-free (node: builtins only)', () => {
   for (const specifier of imports) {
     assert.ok(specifier.startsWith('node:') || specifier.startsWith('./'), `unexpected dependency: ${specifier}`)
   }
-  // Local siblings must be equally dependency-free (no host packages).
-  for (const specifier of imports.filter((s) => s.startsWith('./'))) {
+  // Local siblings must be equally dependency-free (no host packages), and
+  // their own local imports are followed too (boot → soul → paths).
+  const seen = new Set()
+  const checkLocal = (specifier) => {
+    if (seen.has(specifier)) return
+    seen.add(specifier)
     const localSource = readFileSync(new URL(`../lib/${specifier.replace(/^\.\//, '')}`, import.meta.url), 'utf8')
     for (const match of localSource.matchAll(/^import\s+.*?from\s+'([^']+)'/gm)) {
-      assert.ok(match[1].startsWith('node:'), `unexpected dependency in ${specifier}: ${match[1]}`)
+      if (match[1].startsWith('node:')) continue
+      assert.ok(match[1].startsWith('./'), `unexpected dependency in ${specifier}: ${match[1]}`)
+      checkLocal(match[1])
     }
+  }
+  for (const specifier of imports.filter((s) => s.startsWith('./'))) checkLocal(specifier)
+})
+
+test('a CRLF store is injected as LF only', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'memory-crlf-'))
+  try {
+    writeFileSync(join(dir, 'index.md'), '# Memory Index\r\n\r\n- [a](a.md) — A.\r\n', 'utf8')
+    const block = renderBootBlock(dir, { bootMaxChars: 4000 })
+    assert.ok(block.length > 0)
+    assert.doesNotMatch(block, /\r/, 'injected text must not carry CR')
+  } finally {
+    rmSync(dir, { recursive: true, force: true })
   }
 })

@@ -166,12 +166,19 @@ test('readLastAccess reads the frontmatter field and tolerates its absence', () 
   assert.equal(readLastAccess('---\ntitle: t\ndate: 2026-01-01\nsalience: 2\n---\n'), undefined)
 })
 
-test('pages.js stays dependency-free (node: builtins only)', () => {
+test('pages.js stays dependency-free (node: builtins + local pure modules)', () => {
   const source = readFileSync(new URL('../lib/pages.js', import.meta.url), 'utf8')
   const imports = [...source.matchAll(/^import\s+.*?from\s+'([^']+)'/gm)].map((m) => m[1])
   assert.ok(imports.length > 0)
   for (const specifier of imports) {
-    assert.ok(specifier.startsWith('node:'), `unexpected dependency: ${specifier}`)
+    assert.ok(specifier.startsWith('node:') || specifier.startsWith('./'), `unexpected dependency: ${specifier}`)
+  }
+  // Local siblings must be builtin-only too.
+  for (const specifier of imports.filter((s) => s.startsWith('./'))) {
+    const localSource = readFileSync(new URL(`../lib/${specifier.replace(/^\.\//, '')}`, import.meta.url), 'utf8')
+    for (const match of localSource.matchAll(/^import\s+.*?from\s+'([^']+)'/gm)) {
+      assert.ok(match[1].startsWith('node:'), `unexpected dependency in ${specifier}: ${match[1]}`)
+    }
   }
 })
 

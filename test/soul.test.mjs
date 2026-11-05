@@ -210,3 +210,18 @@ test('a legacy chat-forged SOUL echoes the names it already states', () => {
     rmSync(dir, { recursive: true, force: true })
   }
 })
+
+test('a CRLF SOUL.md parses normally and keeps CRLF on write-back', () => {
+  const dir = makeStore('# SOUL\r\n\r\n- **名字**：小助手。\r\n- **相互称呼**：老板 ↔ 小助手。\r\n')
+  try {
+    const profile = readSoulProfile(dir)
+    assert.equal(profile.agentName, '小助手')
+    assert.equal(profile.userName, '老板')
+    writeSoulProfile(dir, { agentName: '小助手', userName: '老板', summary: 'CRLF 保留' })
+    const updated = readFileSync(join(dir, 'SOUL.md'), 'utf8')
+    assert.ok(updated.includes('\r\n'), 'the file keeps its CRLF style')
+    assert.doesNotMatch(updated, /[^\r]\n/, 'no bare LF may be introduced')
+  } finally {
+    rmSync(dir, { recursive: true, force: true })
+  }
+})

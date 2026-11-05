@@ -25,6 +25,7 @@ import {
 import { join, resolve, relative, basename, sep } from 'node:path'
 import { execFileSync } from 'node:child_process'
 import { tmpdir, homedir } from 'node:os'
+import { expandPath } from '../lib/paths.js'
 import { createHash } from 'node:crypto'
 import { ensureMemoryScaffold } from '../lib/scaffold.js'
 import { touchPages, accessSummary, today, listPagesWithMeta } from '../lib/pages.js'
@@ -35,7 +36,7 @@ import { runCheckup, formatCheckup, hasWork } from '../lib/checkup.js'
 const META = new Set(['SOUL.md', 'MEMORY.md', 'BOOTSTRAP.md', 'index.md', 'log.md'])
 
 function resolveStore() {
-  if (process.env.MEMORY_DIR) return resolve(process.env.MEMORY_DIR)
+  if (process.env.MEMORY_DIR) return resolve(expandPath(process.env.MEMORY_DIR) ?? process.env.MEMORY_DIR)
   const local = resolve('.memory')
   if (existsSync(local)) return local
   return join(homedir(), '.memory')
@@ -77,7 +78,7 @@ function parseFrontmatter(text) {
 function cmdInit(store, args) {
   if (args[0]) {
     // Explicit dir argument wins over store resolution.
-    store = resolve(args[0])
+    store = resolve(expandPath(args[0]) ?? args[0])
   }
   const created = ensureMemoryScaffold(store)
   console.log(created.length > 0

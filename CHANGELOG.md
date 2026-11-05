@@ -2,6 +2,37 @@
 
 所有记录跟随 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/) 风格；版本号与 `package.json` 保持一致。
 
+## [0.17.0] - 2026-11-05
+
+### Added（0.17.0：图谱搜索定位 + 双击打开文件）
+
+- **图谱搜索**：3D 图谱上方新增搜索框——按 label > id > type > tag 排序匹配，回车或点击候选即把目标节点**旋转到画面正中**并选中（邻居自动高亮），几十个节点里三秒找到任意一页。
+- **双击节点打开文件**：host 新增 `POST /api/memory/reveal`，在 Finder（macOS）/ Explorer（Windows）/ xdg-open（Linux）里定位并选中对应 `.md`；路径经 realpath 边界校验，越界/非文件一律 400（`lib/reveal.js` 用注入的 execFile 测试，确认非法 id 不会执行任何命令）。
+- 新增纯函数 `lib/graph-search.js`（匹配排序 + 聚焦相机角度），客户端内联同一套并有对齐测试；失败提示走 `graphRevealFailed`。
+
+### Changed（C+E 交互调整 + 体检修复）
+
+- **打开文件的交互改成 C+E**：选中节点 → 详情行出现 **「在 Finder 中显示」** 与 **「复制路径」** 按钮（双击仍是快捷方式）；新增只读的 `GET /api/memory/path` 用于复制绝对路径。
+- **reveal 改为等待命令结果**：`revealFile` 现在是 async，`open -R`/`explorer`/`xdg-open` 失败（沙箱、权限、缺命令）时路由返回 500、客户端显示错误并**自动复制路径**（兜底提示在 Finder 里 ⌘⇧G 粘贴），不再出现"假装成功但没打开"。
+- **双击不再丢选中**：修掉双击时第二次 pointerup 取消选中、详情行闪烁消失的问题。
+
+### Docs（README 精简 + Windows 说明）
+
+- **README 重构**：中英各从 ~290 行压缩到 **102 行**——顶部直接声明 **macOS · Windows · Linux** 支持，新增「跨平台（含 Windows）」章节（路径变量展开 / CRLF 保留 / `open -R`·`explorer /select,`·`xdg-open` / 大小写匹配）；长内容拆进 `docs/CONFIGURATION.md`（完整配置表、boot 预算、覆盖示例、兼容性）与 `docs/DESIGN.md`（架构、人格层、主动机制、图谱、FAQ 细节）。
+- 已核对所有本地链接与截图引用，无死链。
+
+### Cross-platform（Windows 兼容）
+
+- 路径配置支持 `~` / `~\` / `%USERPROFILE%` / `$HOME` 展开（`lib/paths.js`，host/CLI 共用；`~` 只在 POSIX 有效的问题已消除）。
+- CRLF 文件按 LF 解析（frontmatter / SOUL / 受管区块 / 图谱），写回时保留文件自身换行风格（`SOUL.md`、页面 `last_access`）——Windows 编辑器保存的库不再解析失败或被整体 LF 化。
+- 图谱「在 Finder 中显示」：Windows 改用 `explorer` + `/select,` 与路径分开传参（含空格路径安全），并把 explorer 的退出码 1 视为成功；Linux 用 `xdg-open`。
+- `disabledWorkspaces` 在 Windows 上大小写不敏感。
+- 新增 `paths` 5 条测试、CRLF 解析/写回、Windows 大小写匹配、win32 命令与退出码测试；全量 **336/336**。
+
+### Tests
+
+- 新增 `graph-search` 6 条、`reveal` 5 条（含命令失败路径）、`graph-card` 2 条（搜索框/内联一致性）、`session-control` 2 条（reveal 坏请求 + path 路由）；全量 **327/327**。
+
 ## [0.16.1] - 2026-11-05
 
 ### Fixed

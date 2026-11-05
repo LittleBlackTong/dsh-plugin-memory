@@ -5,7 +5,7 @@ import { Readable } from 'node:stream'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
-import plugin, { SESSION_ROUTE_PATH, SOUL_ROUTE_PATH } from '../lib/index.js'
+import plugin, { PATH_ROUTE_PATH, REVEAL_ROUTE_PATH, SESSION_ROUTE_PATH, SOUL_ROUTE_PATH } from '../lib/index.js'
 
 /** A tiny boot store: enough for renderBootBlock to produce a block. */
 function makeStore() {
@@ -120,9 +120,14 @@ function makeWebPlane(ctx, injects) {
   return routes
 }
 
-function routeCall(route, method, url, body) {
+function routeCall(route, method, url, body, rawBody) {
   return new Promise((resolve) => {
-    const req = Readable.from(body === undefined ? [] : [Buffer.from(JSON.stringify(body))])
+    const chunks = rawBody !== undefined
+      ? [Buffer.from(rawBody)]
+      : body === undefined
+        ? []
+        : [Buffer.from(JSON.stringify(body))]
+    const req = Readable.from(chunks)
     req.method = method
     req.url = url
     let status = 0
@@ -332,6 +337,56 @@ test('the soul route reads defaults and saves a profile (marking BOOTSTRAP compl
 
     const bad = await routeCall(route, 'POST', '/api/memory/soul', { agentName: '', userName: '', summary: '' })
     assert.equal(bad.status, 400)
+    dispose()
+  } finally {
+    rmSync(store, { recursive: true, force: true })
+  }
+})
+
+test('the reveal route rejects bad methods, bad JSON and escaping ids without running anything', async () => {
+  const store = makeStore()
+  try {
+    const { ctx, calls, injects } = makeCtx()
+    const dispose = plugin(ctx, BASE_CONFIG(store))
+    const routes = makeWebPlane(ctx, injects)
+    const route = routes.get(REVEAL_ROUTE_PATH)
+    assert.ok(route !== undefined, 'reveal route is registered')
+
+    const notPost = await routeCall(route, 'GET', '/api/memory/reveal')
+    assert.equal(notPost.status, 405)
+
+    const badJson = await routeCall(route, 'POST', '/api/memory/reveal', undefined, '{not json')
+    assert.equal(badJson.status, 400)
+
+    const escape = await routeCall(route, 'POST', '/api/memory/reveal', { id: '../../etc/passwd' })
+    assert.equal(escape.status, 400)
+
+    const missing = await routeCall(route, 'POST', '/api/memory/reveal', { id: 'nope.md' })
+    assert.equal(missing.status, 400)
+    dispose()
+  } finally {
+    rmSync(store, { recursive: true, force: true })
+  }
+})
+
+test('the path route resolves a page inside the store and rejects escapes', async () => {
+  const store = makeStore()
+  try {
+    const { ctx, calls, injects } = makeCtx()
+    const dispose = plugin(ctx, BASE_CONFIG(store))
+    const routes = makeWebPlane(ctx, injects)
+    const route = routes.get(PATH_ROUTE_PATH)
+    assert.ok(route !== undefined, 'path route is registered')
+
+    const good = await routeCall(route, 'GET', `/api/memory/path?id=${encodeURIComponent('SOUL.md')}`)
+    assert.equal(good.status, 200)
+    assert.equal(JSON.parse(good.body).path, join(store, 'SOUL.md'))
+
+    const escape = await routeCall(route, 'GET', `/api/memory/path?id=${encodeURIComponent('../outside.md')}`)
+    assert.equal(escape.status, 400)
+
+    const notGet = await routeCall(route, 'POST', '/api/memory/path', { id: 'SOUL.md' })
+    assert.equal(notGet.status, 405)
     dispose()
   } finally {
     rmSync(store, { recursive: true, force: true })

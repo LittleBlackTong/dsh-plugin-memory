@@ -149,3 +149,9 @@ test('default state path lives under DSH_HOME (or ~/.dsh)', () => {
     else process.env.DSH_HOME = previous
   }
 })
+
+test('matchesWorkspace compares case-insensitively on Windows only', () => {
+  assert.equal(matchesWorkspace('/Users/X/Work', ['/users/x/work'], { platform: 'win32' }), true)
+  assert.equal(matchesWorkspace('/Users/X/Work2', ['/users/x/work'], { platform: 'win32' }), false)
+  assert.equal(matchesWorkspace('/Users/X/Work', ['/users/x/work']), false, 'POSIX stays case-sensitive')
+})

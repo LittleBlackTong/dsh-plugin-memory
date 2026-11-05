@@ -1,6 +1,6 @@
 # dsh-plugin-memory
 
-**中文** ｜ [English](README.md)
+[English](README.md) ｜ **中文**
 
 <p align="center">
   <a href="https://github.com/LittleBlackTong/dsh-plugin-memory"><img alt="GitHub" src="https://img.shields.io/badge/GitHub-LittleBlackTong%2Fdsh--plugin--memory-blue?logo=github"></a>
@@ -10,280 +10,92 @@
   <img alt="node" src="https://img.shields.io/badge/node-%3E%3D18-green">
 </p>
 
-> DeepSeek Harness 长期记忆插件：跨会话、可迁移、带「灵魂」的 markdown 记忆库。
+> 给 DeepSeek Harness 的长期记忆 —— 一个可迁移的 markdown 记忆库，还带一份灵魂，每次会话启动自动注入。
 
-> 让我们一起早日实现完整的「蓝色大肥鱼」。
+**macOS · Windows · Linux** 全平台支持 · Node ≥ 18 · DSH `^0.2.1-rc.5` · MIT
 
-**English TL;DR** — A Cordis plugin for [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) that gives agents a persistent, cross-session, migratable long-term memory: a markdown + git store (inspired by Karpathy's *LLM Wiki* pattern) with a `SOUL.md` persona file, **auto-injected at every session start** via the system-prompt runtime context, plus remember / recall / consolidate / forget workflows and portable CLI tooling.
+## 它是干什么的
 
-## 快速上手
+一个 Cordis 插件，给 DSH 的 agent 装上**跨会话、可迁移的持久记忆**：纯 markdown + git（*LLM Wiki* 模式）、一份 `SOUL.md` 人格，以及通过 runtime context **自动注入的 boot 块**——硬保证，不靠模型自觉去调 skill。
 
-三步，大约五分钟：
+## 快速开始
 
 ```sh
 # 1. 安装
 dsh plugin --profile <profile> add dsh-plugin-memory
 ```
 
-2. **重启应用**，开个会话随便说句话。boot 块会自动加载——因为记忆库还没有灵魂，agent 会**主动开始「铸魂」对话**：它叫什么名字、怎么称呼你、你们是什么关系、该是什么性格。答多答少都行，它会逐项写回去。
+2. **重启应用**。第一个会话里 agent 会**主动发起铸魂对话**（不想聊也行：**设置 → 记忆 → 人格基础**，一次保存）。
+3. **验证**：`dsh-memory doctor`，或打开 **设置 → 记忆** 看健康看板与热改配置。
 
-   不想聊也行：**设置 → 记忆 → 人格基础**，一次保存填好「我的名字 / 你的称呼 / 基础人格描述」，直接写入 `SOUL.md` 受管区块并把铸魂标记为完成——十秒钟，效果和对话一样。
+## 功能
 
-3. **确认生效**。`dsh-memory doctor` 做一次环境体检（脚手架 / 孤儿页 / git 状态 / boot 预算），最后给出修复每一条的命令。或者打开**设置 → 记忆**看健康看板，选项都能热改。
+- **跨会话记得住** —— boot 块 = SOUL + MEMORY 协议 + `index.md` + 最近动态，按文件分配预算，index 尾部不会先被截断。
+- **有灵魂，不只是存储** —— SOUL + BOOTSTRAP 铸魂；快速铸魂卡片写入受管区块；人格名从 SOUL 读取，绝无硬编码。
+- **你说了算** —— 会话级开关（chip / `/memory on|off` / 面板）+ `disabledWorkspaces` 工作区默认。
+- **像个搭子** —— digest 提醒、主动追忆、每周成长回顾、按语境调语气；与其它主动插件共享发言权仲裁。
+- **可迁移** —— 纯 markdown + git，`pack`/`unpack` 搬家，可选自动提交。
+- **记忆图谱** —— 可交互 3D 球面：旋转/缩放/拖节点整理、搜索定位、悬停或点击点亮邻居；选中节点可 **在 Finder 中显示** 或 **复制路径**。
+- **健康工具** —— 看板、`checkup`、`lint`、`doctor`、自动 `last_access`。
+- **零构建、面板双语、配置热改。**
 
-之后就很简单了：你干活时 agent 顺手把记忆写回去；你随时能手动整理记忆库——纯 markdown + git，没有任何锁死的东西。
+## 跨平台（含 Windows）
 
-## 特性
-
-- **开机强制注入（带路由表保护）**：插件通过 `ctx.systemPrompt.context()` 把记忆 boot 块（`SOUL.md` 人格 + `MEMORY.md` 协议 + `index.md` 目录 + 最近动态）注入会话上下文。宿主按投影去重：记忆不变就不重复注入，变化时新快照自动取代旧的——这是"新会话必先加载记忆"的**硬保障**，不需要模型碰运气调技能。总预算是 `bootMaxChars`，**按文件分配**：每个文件先拿一份均分（受实际大小封顶），剩余额度优先给 `index.md`、再给尚有内容未注入的文件——所以记忆库长大时，目录的尾部不会先被截掉（详见「boot 预算分配」）。默认还带**两道礼貌闸门**：`deferUntilUserSpeaks`（用户开口后才注入）与 `activeSessionOnly`（只注入当前激活会话），见「配置」。
-- **按会话开关（v0.14.0）**：不是每段对话都该被记住。输入框工具行左侧的 chip、`/memory on|off|status` 命令、设置面板里的开关，三者改的是同一个会话级 gate：关闭后**本会话不注入 boot 块、不发 digest/追忆提醒、不盖 `last_access`**——记忆文件不删，其它会话不受影响。整个项目可以设成默认关（`disabledWorkspaces`，按会话 cwd 的路径边界匹配，会话级 override 仍然优先）；每个会话的选择会记住 `sessionTtlDays`（7）天，恢复的会话保持原选择。命令面与 chip 共用 `/api/memory/session`，键盘用户与鼠标用户不会看到两套状态。`memory` 技能仍是全局注册（宿主无法按会话停技能）；boot 不注入后 agent 上下文里没有记忆协议——这个边界在文档里写清。
-- **快速铸魂（v0.15.0）**：设置页新增「人格基础（快速铸魂）」卡片——**我的名字 / 你的称呼 / 基础人格描述**——保存后写入 `SOUL.md` 的受管区块（其余内容一字不动），并把 `BOOTSTRAP.md` 标成 complete。从没聊过铸魂的用户，一次保存就能摆脱模板人格；boot 块下一次会话即生效（无需重启）。新用户预填**通用默认值**（`助手` / `你` / 三段式人格示例），不会出现别人的名字；默认值直接回显在输入框里，可改也可直接保存。人格描述支持多行。对话铸魂的老库（没有受管区块）会从 `SOUL.md` 解析回显名字/相互称呼/角色，不会假装"还没铸魂"。还没设置时，boot 块仍会前置第一人称铸魂引导，并且**现在会先提醒用户**：既可以对话回答，也可以去设置页填卡片。`GET/POST /api/memory/soul`。文件里的 `_（铸魂对话中确认）_` 占位行保留（只在注入副本里过滤），详细人格仍可后续对话补充。
-- **last_access 自动戳记**：`MEMORY.md` 的 salience 衰减规则依赖 `last_access`，而它以前纯粹靠自觉——模板里有字段、规则里提到它，但没有任何代码去写它，于是每个页面都原地变老、衰减表形同虚设。现在会话收到第一条真实用户消息时，插件会把 boot 块**实际注入过的页面**（`SOUL.md` / `MEMORY.md` / `index.md` + 目录里被引用到的页）戳成当天，每会话一次、按天幂等，只改 `last_access` 一行；`dsh-memory touch <pages...>` 可手动补记，`trackPageAccess: false` 可关闭。
-- **SOUL.md 铸魂**：安装后首要任务是和用户对话定义灵魂（名字、性格、价值观、语气、边界）、确认身份与关系（`BOOTSTRAP.md` 清单驱动，complete 前优先于常规任务）。
-- **铸魂自动引导**：记忆库还没有灵魂（`BOOTSTRAP.md` 非 complete，或 `SOUL.md` 仍是占位模板）时，boot 块会自动前置一段第一人称引导词——「我的首要任务是确认我是谁，还有你是谁：我叫什么名字、怎么称呼你、你我是什么关系、我该是什么样的性格」——像 OpenClaw 初始化那样，**由 agent 在对话里主动发起铸魂**，逐项问、逐项写回，而不是等用户来喂。铸魂完成后引导词自动消失，零开销。
-- **复利记忆**：遵循 Karpathy 的 *LLM Wiki* 约定——记忆是"一次编译、持续保鲜"的持久产物，不是每次查询重新 RAG。remember / recall / consolidate / forget 四操作 + salience 三级衰减。
-- **可迁移**：记忆本体是纯 markdown + git + 自描述 schema，任何能读 markdown 的 agent 都能接手。`dsh-memory pack/unpack` 打包迁移。
-- **内嵌技能**：通过 `ctx.skills.register()` 注册 `memory` 技能（操作协议随插件分发）；项目级 `.dsh/skills/memory` 文件技能仍可覆盖它。
-- **防懒 digest 唤醒**：每轮结束后，若 agent 空闲且记忆库超过 `digestNudgeAfterMinutes` 未写入，插件注入一条 digest 提醒（合成消息，走 `agent.followup`），把"会话收尾沉淀"从靠自觉变成有机制兜底；带冷却与每会话限次，不骚扰。**独立于 dsh-plugin-heartbeat**，两插件各自可装、互不依赖。
-- **主动追忆（拟人化）**：对话空下来时，插件会以第一人称主动提起一件**真实记得**的、关于用户或你们之间的事（偏好、往事、未了的决定、最近的进展），把记忆从"只写回"变成"也用起来"——像老友自然想起那样，而非报状态。间隔在最短/最长之间**随机取值**（不固定节奏），配合每会话限次，不骚扰、不编造、不硬聊；纯对话行为，不写记忆库。**同样独立于 heartbeat**。
-- **git 自动提交**：记忆库变更静默 `autoCommitQuietSeconds` 后自动 `git add -A && git commit`（无 `.git` 则跳过）——历史可回滚不再依赖 agent 记得 commit。
-- **设置面板**：在 DSH 设置页提供「记忆 / Memory」区块（跟随语言）——总开关、记忆目录、开机注入、技能注册、主动追忆（开关 + 随机间隔范围 + 每会话次数）均可热改，立即生效，无需重启。
-- **index 自动整理（声明式编译）**：索引行不再手写。页面在 frontmatter 里声明 `summary:`，`dsh-memory index --write` 把行重写为它的投影（标签 ≤32 / 摘要 ≤48 / 整行 ≤132 字符），**只改行内容，分节与顺序逐字节保留**，且幂等。`index --check` 给机器判定（有漂移退出码非 0），`index --sync-frontmatter` 把已写在 index 里的摘要回填进页面（老库一次性迁移）。digest 提醒会在索引漂移时附一句提示，agent 顺手就能修。
-- **互链成为默认动作**：`index.md` 是目录（谁存在），页间互链才是**关系**（谁和谁有关）——实测一个真实记忆库里 29 页只有 1 条真互链，而图谱与跨页综合全都建立在这层关系上。现在三处一起推：`skills/memory.md` 的 remember 流程、`MEMORY.md` 模板的工作流、以及 digest 提醒的收尾指令，都明确要求"给这次碰过的页面各补 1–3 条相关页链接"。
-- **补链建议**：`dsh-memory graph --suggest` 列出「只有索引入口、没有任何内容关系」的页面该引用谁——按共享主题 tag、标题词、同类型打分，并说明理由（`共享 #dsh` / `标题词 dsh` / `同类型`）。只报告不写入：是否连、怎么连由 agent 决定。`GET /api/memory/graph?suggest=1` 同源。
-- **记忆图谱（3D，v0.16.0）**：设置页里一张只读关系图，现在升级为可交互的 **3D 球面**，用 Canvas 手绘（零依赖、不用 WebGL）：Fibonacci 球面均匀分布（同类型聚成一条色带、确定性无随机）、透视投影、景深雾化、节点发光。**可交互**：拖空白旋转、滚轮缩放（0.5×–2.4×）、**拖节点在 3D 里整理布局**（位置在 25 秒自动刷新后仍保留）、双击空白重置、自动慢转（`prefers-reduced-motion` 时默认关）。**悬停或点击立刻点亮邻居**；点击判定用「位移 + 时长」双阈值（≤5px、≤350ms），轻点一下不会再被误判成拖拽——这正是 demo 里「选中节点不立即显示关联点」的根因。选中节点最后绘制（永远不会被遮住），邻居保留标签，卡片里显示选中节点的类型/度数/邻居数。3D 数学在 `lib/graph-3d.js`（纯函数 + 测试），并在 `client.js` 里内联同一套（客户端只能 require 平台种子），有对齐测试防止漂移。三类边仍可区分：页间互链＝实线蓝、索引路由＝灰色虚线、共享 tag＝细紫线。`GET /api/memory/graph`（只读、实时）。
-- **`dsh-memory checkup`**：把四个读者（lint 的完整性、status 的计数、看板的体量与新鲜度、graph 的关系）合成**一份带优先级的报告** —— 体量、新鲜度条形图、连接度、一致性检查，最后给出"最该做的 N 件事"。四个数字是诊断，"做这三件事"才是产品。有活干时退出码非 0，可被脚本消费。`--boot=N` 用于按你的 boot 预算计算索引占比。
-- **记忆健康看板**：同一区块下方是一张**只读**看板——记忆页数 / index 路由数 / 记忆字数、访问新鲜度条形图（今天 / ≤7 / ≤30 / ≤90 / >90 天）、四项体检结论（index 链接、孤儿页、frontmatter、新鲜度）与健康分、陈旧页候选、最近 5 条动态。数据来自新增的 `GET /api/memory/insights`（每次请求实时统计，不缓存），体检口径与 `dsh-memory lint` 同源，所以看板与 CLI 不会互相打脸。
-- **零构建**：纯 ESM JavaScript，无编译步骤，`pnpm add` 即用。
-
-## 人格层、礼貌与成长（v0.12.0）
-
-四个小增量，把「带灵魂的存储」变成「会处事的伙伴」：
-
-- **A 与其他主动插件的发言权仲裁**：任何主动消息——追忆、digest 提醒、成长回顾——发出前先 claim 共享文件 `${DSH_HOME:-~/.dsh}/proactive-cooldown.json`（`{ version: 1, speaker: 'memory' | 'heartbeat', at: <epoch ms> }`，tmp+rename 原子写）。若 `proactiveCooldownSeconds`（默认 **180**，`0` = 关闭）内有其他 speaker 先 claim，本条让位且**不消耗节奏**——下次触发自动重试。两个插件零 import、各自独立实现同一协议，任一方可单独装 / 升 / 卸。
-- **B 语气漂移**：`lib/tone.js` 在 SOUL 之后注入一小段 `## 语气（按语境微调）`（≤12 行，**计入 boot 预算**——先扣掉该段字符成本再按文件分配）：赶工/紧急修复 → 短句、先结论、零玩笑；深夜（23:00–06:00）→ 更短更温和；报错/坏消息 → 先给事实与修复动作再谈感受；里程碑/完成 → 轻松一句然后回正事。`toneGuideEnabled`（默认 `true`）开关，`toneIntensity`（`low` / `medium` / `off`，默认 `low`）控制明显程度。
-- **C 表达层（只表达不假装）**：同一段语气规则画出边界——只描述**观察到的处境与关心**，不宣称内心情绪（禁「我很… / 我感到…」）；仅允许三类场合：风险/坏消息、里程碑/完成、超过 3 天没联系后的第一次开口。
-- **D 每周成长回顾**：`growthRecapEnabled`（默认 `true`）、`growthRecapIntervalDays`（默认 `7`）。走 **recall 通道**（同一节律、同一每会话上限、同一仲裁锁），内容只从记忆库已经证明的东西派生——最近的 `log.md` 标题与页面 mtime——不编造成长。`<store>/.growth-recap.json` 记录上次投递，重启不会重复同一周的回顾。
-
-## 架构
-
-插件只拥有**工作流**，不拥有**数据格式**：
-
-```
-dsh-plugin-memory（本插件）
-├── lib/index.js        # Cordis 入口：boot 注入 + 运行时技能注册 + settings 热改
-├── lib/boot.js         # boot 块渲染（SOUL/MEMORY/index + 最近 log，按文件分配预算）
-├── lib/pages.js        # 页面访问记账：extractReferencedPages / touchPages（last_access）
-├── lib/insights.js     # 记忆健康看板的数据层（页数/分布/新鲜度/体检，只读）
-├── lib/activity-tracker.js # 两道礼貌闸门：用户是否开口 + 当前激活会话
-├── lib/digest-guard.js # 防懒 digest 唤醒（空闲 + 记忆库久未写 → followup 提醒）
-├── lib/recall-nudge.js # 主动追忆（空闲 → 第一人称提起一件真实往事，纯对话不写库）
-├── lib/scaffold.js     # 记忆库脚手架（模板只建不覆盖）
-├── lib/client.js       # 客户端半：设置面板「记忆 / Memory」区块（跟随语言）+ 记忆健康看板
-├── skills/memory.md    # 内嵌技能的操作协议正文
-└── scripts/memory.mjs  # CLI：init/search/touch/lint/status/pack/unpack
-
-记忆库（用户数据，默认 ~/.memory）
-├── SOUL.md       # 人格与灵魂（用户主导）
-├── BOOTSTRAP.md  # 铸魂清单（complete 前优先）
-├── MEMORY.md     # schema 与维护协议（自描述）
-├── index.md      # 页面目录    log.md # 时间线（append-only）
-├── identity/ user/ skills/ decisions/ projects/{active,archive}/ concepts/
-└── raw/          # 不可变源材料
-```
-
-## 安装
-
-```sh
-dsh plugin --profile <profile> add dsh-plugin-memory
-```
-
-（包内置 `dsh.bundle` manifest，`dsh plugin add` 会把它自动挂进 profile 的 bundles 层；dsh-market 里的一键安装同此通道。）
-
-重启 profile（DSH Desktop 重启应用）后生效。
-
-> 📌 **版本要求：DSH session format v4 + 官方 DeepSeek Harness 0.2.1-rc.5 系列**（0.13.x 已声明 `engines.dsh`；旧宿主会被闸门拒绝，见[兼容性](#兼容性)）
->
-> 注入消息的 source 使用 producer-owned kind `plugin:memory`。v4 的原生准入明确拒绝 v3 时代的
-> `{ kind: 'plugin', plugin: 'memory' }` wrapper，报
-> `format v4 message requires a producer-owned source kind`（该错误被包成 `code: "UNKNOWN"`，
-> 所以在界面上会显示成 `... source kind UNKNOWN`——`UNKNOWN` 是错误码，不是 kind 值）。
->
-> v4 与 v3 的白名单**互斥**（v3 只认 `plugin`），因此无法同时兼容两版。
-> **0.8.0 及更早版本在 v4 上会触发该错误**；旧版 DSH 请停留在 0.8.0。
-
-> ⚠️ **不要**再往 profile 的 `cordis.patch.yml` 里手写 `- insert: {id: dsh-memory, ...}`：
-> 那会与 bundle manifest 的自动挂载产生两条同名 entry，整个 profile 会以
-> `duplicate loader entry id "dsh-memory"` 启动失败（2026-08-18 实机事故）。
-> 运行期配置（enabled / memoryDir / autoInject / registerSkill / recallEnabled）改走
-> `<dshHome>/memory.json`（设置面板热改）；composition 配置见下表。
-> 如需覆盖某个 composition 键，用**不带 insert 的 id 覆盖条目**（见配置一节）。
+**macOS、Windows、Linux 都支持。** 路径配置里的 `~`、`~\`、`%USERPROFILE%`、`$HOME` 会自动展开；CRLF 文件按 LF 解析、**写回保留文件自身换行风格**（不会被强行 LF 化）；「在 Finder 中显示」在 macOS 是 `open -R`、Windows 是 `explorer /select,`（参数分开传，含空格路径安全）、Linux 是 `xdg-open`；`disabledWorkspaces` 在 Windows 上大小写不敏感。细节见 [docs/CONFIGURATION.md](docs/CONFIGURATION.md)。
 
 ## 配置
 
-| 键 | 默认值 | 含义 |
-|---|---|---|
-| `enabled` | `true` | 总开关：关闭后不注入 boot 块、不注册 `memory` 技能 |
-| `memoryDir` | `~/.memory` | 记忆库绝对路径（`~` 自动展开） |
-| `bootFiles` | `[SOUL.md, MEMORY.md, index.md]` | 开机注入的文件 |
-| `bootMaxChars` | `12000` | boot 块总字符预算（防止占用过多上下文）；按文件分配见下文 |
-| `bootFileBudgets` | — | 逐文件字符上限，例如 `{ index.md: 3500 }`；未列出的文件分剩余额度（composition 层，改完需重启） |
-| `trackPageAccess` | `true` | 会话首条用户消息时，把 boot 块实际注入的页面戳 `last_access`（关闭后衰减表需手动维护） |
-| `autoInject` | `true` | 会话开始时注入 boot 块 |
-| `deferUntilUserSpeaks` | `true` | 用户发出第一条真实消息后才注入（boot 块 / 追忆 / digest 提醒都遵守）；面板可热改 |
-| `activeSessionOnly` | `true` | 只对「当前激活会话」（最近收到用户消息的会话）注入，后台会话不打扰；面板可热改 |
-| `registerSkill` | `true` | 注册内嵌 `memory` 技能 |
-| `scaffold` | `true` | 记忆库缺失时自动创建模板（只建不覆盖） |
-| `configFile` | `<dshHome>/memory.json` | 用户可改配置的 JSON 文件路径（设置面板读写它） |
-| `digestNudgeEnabled` | `true` | 防懒 digest 提醒总开关（composition） |
-| `digestNudgeAfterMinutes` | `120` | 记忆库超过多久未写入就提醒 |
-| `digestNudgeCooldownMinutes` | `180` | 两次提醒的最小间隔 |
-| `digestNudgeMaxPerSession` | `2` | 每个会话最多提醒次数 |
-| `recallEnabled` | `true` | 主动追忆总开关（面板可热改） |
-| `recallIntervalMinMinutes` | `30` | 随机间隔下限（分钟，面板可热改） |
-| `recallIntervalMaxMinutes` | `240` | 随机间隔上限（分钟，面板可热改） |
-| `recallMaxPerSession` | `3` | 每个会话最多追忆次数（面板可热改） |
-| `proactiveCooldownSeconds` | `180` | 与其他主动插件的共享发言冷却（`0` = 关闭） |
-| `toneGuideEnabled` | `true` | 在 SOUL 之后注入按语境微调的语气段 |
-| `toneIntensity` | `low` | `low` / `medium` / `off`（off = 纯工程师语气） |
-| `growthRecapEnabled` | `true` | 每周成长回顾（走 recall 通道） |
-| `growthRecapIntervalDays` | `7` | 两次成长回顾间隔天数 |
-| `disabledWorkspaces` | `[]` | 默认关闭记忆的工作区（按会话 cwd、`~` 展开、路径边界匹配）；会话级 override 仍然优先；面板可热改 |
-| `sessionStateFile` | `<dshHome>/memory-sessions.json` | 会话级 override 的落盘位置（composition） |
-| `sessionTtlDays` | `7` | 会话 override 的有效天数，过期清理（composition） |
-| `autoCommit` | `true` | 记忆库 git 自动提交开关（composition） |
-| `autoCommitQuietSeconds` | `60` | 变更静默多久后提交（防抖） |
-| `autoCommitIntervalSeconds` | `60` | 变更轮询间隔 |
-
-### 设置面板（热改）
-
-`enabled` / `memoryDir` / `autoInject` / `deferUntilUserSpeaks` / `activeSessionOnly` / `registerSkill` / `recallEnabled` / `recallIntervalMinMinutes` / `recallIntervalMaxMinutes` / `recallMaxPerSession` / `proactiveCooldownSeconds` / `toneGuideEnabled` / `toneIntensity` / `growthRecapEnabled` / `growthRecapIntervalDays` / `disabledWorkspaces` 十六项在 DSH 设置页的「记忆 / Memory」区块中可改（跟随语言），**即时生效**：boot 注入、两道礼貌闸门、技能注册、主动追忆（含随机间隔与次数）、发言权仲裁、语气段、每周成长回顾与会话级开关随修改立即生效；记忆目录切换时自动为新目录初始化脚手架（`scaffold: true` 时）。其余键（`bootFiles` / `bootMaxChars` / `bootFileBudgets` / `trackPageAccess` / `scaffold` / `configFile` / `sessionStateFile` / `sessionTtlDays` / `digestNudge*` / `autoCommit*`）只在 composition 配置层生效，改完需重启。
-
-旁边还有一个 **「立即回顾」按钮**：它是**控制动作，不是配置项**——让插件立刻发一次成长回顾。仍尊重发言权仲裁（别的插件在说话就让位）、本周没有新内容就不发、即使 `recallEnabled` 关闭也能用，并在面板里给出结果（回顾中 / 已发送 / 让位 / 会话正忙 / 没有新内容 / 已关闭 / 失败），结果提示 5 秒后自动消失。
+十六个热改项在 **设置 → 记忆** 里即时生效。完整配置表、boot 预算规则与组合层覆盖示例见 [docs/CONFIGURATION.md](docs/CONFIGURATION.md)。
 
 ![记忆设置面板](assets/settings-panel.png)
-
-### 语言 / Language
-
-设置面板与侧栏 label 跟随 DSH 自己的语言设置（**设置 → 通用设置 → 语言**），切换即时生效、无需重启：中文显示「记忆」，英文显示 "Memory"。面板文案通过 `ctx.locale` 注册在 `memory` 命名空间，renderer 会给区块注入 `t(key)` 座位，于是表单、健康看板、图谱卡片整体重渲染为当前语言；侧栏图标的认领键取自同一个 label 解析函数，语言切换后自动重新认领正确的那一行。健康看板的四项体检 **label 与 detail** 由 insights 路由新增的结构化 `data` 在客户端按语言重建（`lib/insights.js` 仍保留中文 `label`/`detail` 供 CLI 使用）；旧版本宿主 payload 没有 `data` 时回退中文串。用户内容（页面标题、`log.md` 动态）与 CLI 自身的中文输出属于内容而非界面文案，不在翻译范围内。
-
-### 兼容性
-
-`package.json` 声明 `engines.dsh: "^0.2.1-rc.5"`，宿主用 `semver.satisfies(..., { includePrerelease: true })` 强制校验——prerelease 细节很关键：`^0.2.1` / `>=0.2.0` **匹配不上** `0.2.1-rc.5`，只有显式写 prerelease range 才认（它同时覆盖将来的 0.2.1 正式版）。一路走来有两个宿主服务变成「承重」的：`locale` 服务（0.11+：面板通过它注册语言包）与会话投影（0.12+：发言权仲裁与成长回顾要读）。旧宿主会被闸门直接拒绝加载，而不是让插件半残运行；运行期缺投影则优雅降级——不发回顾、不抢发言权，绝不崩。
-
-### boot 预算分配（为什么 index 不会先被截掉）
-
-`bootMaxChars` 是总预算，按文件分配而不是简单平摊：
-
-1. 有 `bootFileBudgets` 条目的文件先拿自己的额度；
-2. 其余文件各拿一份均分额度，**以文件实际大小封顶**——短文件把用不完的额度退回池子；
-3. 池子再补给「还有内容没注入」的文件（每个最多补到均分额度的两倍）：**`index.md` 优先**，其余按体积降序——所以截断落在哪个文件上由体积决定，而不是由 `bootFiles` 的书写顺序决定。
-
-当每个文件都小于均分额度时，结果与旧的平摊规则逐字节相同；只有记忆库长大后才会不同。这也意味着：**`index.md` 是路由表，别把它写成摘要表**——它会被完整注入，膨胀的代价是挤掉人格与其他记忆。
-
-> **「当前激活会话」怎么判？** DSH 宿主侧没有「浏览器当前聚焦的会话」信号（激活会话是前端概念）。插件用**最近一次收到真实用户消息的 live root agent**作为激活会话的代理：你在哪个会话里说话，哪个会话就激活；切到别处但不发消息时，宿主感知不到「切换」这个动作（这是代理的已知边界）。若日后需要精确到「展开/聚焦」级别，需补一小段客户端 focus 上报。
-
-### 记忆健康看板
-
-设置页「记忆 / Memory」区块下方是一张**只读**看板，数据来自 `GET /api/memory/insights`：
-
-| 展示 | 含义 |
-|---|---|
-| 记忆页 / index 路由 / 记忆字数 | 记忆库规模（字数按字符计，中文不会按字节虚高 3 倍） |
-| 健康分（0–100） | 由孤儿页、缺 `salience`/`type`、陈旧页、失效 index 链接加权得出 |
-| 访问新鲜度条形图 | 今天 / ≤7 / ≤30 / ≤90 / >90 天 / 从未戳记（驱动自 `last_access` 自动戳记） |
-| 四项体检 | index 链接完整、无孤儿页、frontmatter 完整、访问新鲜度——口径与 `dsh-memory lint` 同源 |
-| 陈旧页候选 | 超过 90 天或从未戳记的页面，按陈旧度排序（前 8） |
-| 最近动态 | `log.md` 最新 5 条标题 |
-
-看板是**实时**的：每次打开设置页（或改完任一配置项后）重新拉取，不落盘、不缓存、不写记忆库。头less 部署没有 `webServer` 时该路由与看板都不存在，其余功能不受影响。
-
-覆盖 composition 键（例如把 boot 块预算调大），在 profile 的 `cordis.patch.yml` 里写**不带 `insert` 的 id 覆盖条目**：
-
-```yaml
-- id: dsh-memory
-  config:
-    bootMaxChars: 12000
-```
-
-> 实现说明：DSH 的 settings wire 只服务硬编码的命名空间白名单，插件命名空间写不进去，因此本插件走自建通道——配置存 `<dshHome>/memory.json`（schema 校验 + 原子落盘），由插件自注册的 `GET/POST /api/memory/config` 路由服务，客户端区块 fetch 直连。
-
-## 首次使用：铸魂
-
-插件安装后，第一次会话里 agent 的首要任务**不是干活**，而是与你对话定义它的灵魂：名字、性格、价值观、语气、边界，以及你的身份与你们的关系。逐项确认并写回 `SOUL.md` / `user/profile.md`，直到 `BOOTSTRAP.md` 的 `status` 变为 `complete`。你可以随时跳过或暂缓。
-
-## 四个操作
-
-- **remember（记）**：把值得持久化的内容蒸馏成页面，同步更新 `index.md`、追加 `log.md`。维护 index 时守路由表纪律：一行一页、一句话摘要（≤ 80 字）+ `salience`。
-- **recall（忆）**：会话开始读 boot 块；查询时先查 `index.md` 再钻页；必要时 `dsh-memory search <关键词>`。
-- **consolidate（整理）**：`dsh-memory lint` 查矛盾、孤儿页、该归档的冷页；`dsh-memory status` 看陈旧页分布。
-- **forget（忘）**：显式遗忘立即执行；自动衰减按 salience + last_access（冷页优先归档）。`last_access` 由插件自动维护，无需手改。
 
 ## CLI
 
 ```sh
-dsh-memory init [dir]                 # 创建记忆库脚手架
-dsh-memory search <query> [--touch]   # 全文检索（--touch 给命中页戳 last_access）
-dsh-memory touch [pages...]           # 手动戳 last_access（不带参数 = 全部页面）
-dsh-memory graph --suggest            # 关系报告 + 「这页该连谁」建议（只报告）
-dsh-memory query --type decision --tag dsh --hot --stale [关键词]
-                                      # 结构化检索：先按 frontmatter 过滤，再匹配正文
-dsh-memory checkup [--boot=N]         # 一份报告：体量/新鲜度/连接度/一致性 + 优先级行动清单
-dsh-memory lint                       # 完整性体检
-dsh-memory doctor                     # 环境体检：脚手架 / 孤儿页 / git / boot 预算，并给出修复命令
-dsh-memory status                     # 健康概览（含陈旧页统计）
-dsh-memory pack [out.tar.gz]          # 打包导出（含 manifest）
-dsh-memory unpack <archive> [--force] # 从归档恢复
+dsh-memory init [dir]        # 生成记忆库脚手架
+dsh-memory search <query>    # 全文搜索
+dsh-memory checkup           # 一份带优先级的健康报告
+dsh-memory doctor            # 环境体检 + 修复命令
+dsh-memory graph --suggest   # 谁该链接到谁（只报告）
+dsh-memory pack / unpack     # 记忆库打包 / 恢复
 ```
 
-存储定位顺序：`$MEMORY_DIR` → `./.memory`（存在时）→ `~/.memory`。
+记忆库解析顺序：`$MEMORY_DIR` → `./.memory` → `~/.memory`。
 
-## 迁移
+## 文档
 
-记忆库是纯 markdown + git：拷贝即迁移。跨机器 / 跨 agent / 能力降级档位见 [docs/MIGRATION.md](docs/MIGRATION.md)。
+[配置](docs/CONFIGURATION.md) · [设计说明](docs/DESIGN.md) · [迁移](docs/MIGRATION.md) · [主动消息协议](docs/PROACTIVE-PROTOCOL.md) · [贡献](CONTRIBUTING.md) · [安全](SECURITY.md) · [更新日志](CHANGELOG.md)
 
-## 常见问题
+## FAQ
 
-**Q：和手写的 `.dsh/skills/memory` 文件技能（skill 版）什么关系？**
-skill 版是"软保障"（技能目录只注入简介，正文靠模型主动加载）；本插件是"硬保障"（boot 块随系统提示词运行时上下文自动注入）。两者可共存：文件技能（rank 100）会覆盖插件内嵌技能（rank 250）的协议。如果你之前为了软保障改过系统提示词 persona（如 profile 补丁里的开机指令），装上本插件后建议**移除那段 persona**，避免双份注入。
-
-**Q：boot 块会不会每次请求都重复注入、烧 token？**
-不会。运行时上下文按投影去重：内容不变只注入一次；记忆更新后新快照取代旧快照。
-
-**Q：记忆库放在哪里最合适？**
-默认 `~/.memory`（全局、跨项目）。需要按项目隔离时，把 `memoryDir` 配到项目内，或让 agent 在项目里维护 `.memory/`。
-
-**Q：可以加密吗？**
-记忆含敏感内容时，可把 `memoryDir` 放进加密卷 / 私有仓库。格式不变，插件无感知。
+**每次请求都烧 token 吗？** 不会——runtime context 按投影去重，没变化只注入一次。
+**文件技能和插件的关系？** 文件技能是软保证（只注入说明），本插件是硬保证；两者可共存（文件技能优先级更高），手写 persona 要删掉以免重复注入。
+**记忆库放哪？** 默认 `~/.memory`；按项目隔离就把 `memoryDir` 指进项目里。
 
 ## 开发
 
 ```sh
 git clone https://github.com/LittleBlackTong/dsh-plugin-memory.git
 cd dsh-plugin-memory
-node scripts/memory.mjs --self-test   # 冒烟测试（无需安装依赖）
+node scripts/memory.mjs --self-test   # 冒烟测试，无需安装依赖
+node --test                          # 全量测试
 ```
 
-零构建：`lib/` 直接是运行时代码，`lib/types/index.d.ts` 供 TS 消费方使用。`boot.js` / `scaffold.js` 只依赖 `node:*` 内置模块，可独立复用。
+零构建：`lib/` 直接就是运行时代码。CI 跑上面两条。
 
-测试用 `node --test`，当前共 **260 个用例**；CI（`.github/workflows/ci.yml`）会连同 `node scripts/memory.mjs --self-test` 一起跑。贡献与安全策略见 [CONTRIBUTING.md](CONTRIBUTING.md)、[SECURITY.md](SECURITY.md)；跨插件发言协议见 [docs/PROACTIVE-PROTOCOL.md](docs/PROACTIVE-PROTOCOL.md)。
+## Roadmap
 
-## 路线图
-
-- [ ] TypeScript 重写（带完整类型与构建步骤）
-- [ ] embedding/BM25 检索（规模超过几百页后替代 index 先行）
-- [ ] MCP server（让非 DSH 的 agent 也能用同一套记忆库）
-- [ ] GitHub Actions CI（跑 `--self-test` 与 lint）
-- [ ] 记忆加密存储选项
+- [ ] Embedding / BM25 检索
+- [ ] MCP server（让非 DSH 的 agent 共用记忆库）
+- [ ] 记忆加密存储
+- [ ] TypeScript 重写
 
 ## 反馈与交流
 
-- **报 bug / 提需求 / 交 PR**：[提 issue](https://github.com/LittleBlackTong/dsh-plugin-memory/issues)——这是长期有效的渠道。
-- **微信群**：扫下面的二维码加入「dsh-plugin-memory 插件沟通」群，问题、反馈、PR 协调都在群里。
+- **报 bug / 提需求 / 交 PR**：[提 issue](https://github.com/LittleBlackTong/dsh-plugin-memory/issues)。
+- **微信群**「dsh-plugin-memory 插件沟通」：扫下面的码（二维码约 7 天过期；失效请提 issue）。
 
 ![dsh-plugin-memory 微信群](https://raw.githubusercontent.com/LittleBlackTong/dsh-plugin-memory/main/assets/wechat-group.png)
-
-> 微信群二维码每 7 天过期一次；失效后请提 issue（或在群里说一声），我会更新。
 
 ## License
 

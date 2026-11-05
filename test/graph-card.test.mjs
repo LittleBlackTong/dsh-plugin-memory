@@ -221,3 +221,25 @@ test('isLightColor picks the right drawing style for the panel background', () =
   assert.equal(seam.isLightColor('rgba(0, 0, 0, 0)'), false)
   assert.equal(seam.isLightColor(undefined), false)
 })
+
+test('GraphView renders the search box above the canvas', () => {
+  const seam = loadClient()
+  const tree = seam.GraphView({ graph })
+  const inputs = findAll(tree, 'input')
+  assert.ok(inputs.some((input) => input.props.type === 'search'), 'search input missing')
+})
+
+test('the inlined search/focus maths matches lib/graph-search.js', async () => {
+  const seam = loadClient()
+  const lib = await import('../lib/graph-search.js')
+  const nodes = graph.nodes.map((node) => ({ ...node }))
+  const plain = (v) => JSON.parse(JSON.stringify(v))
+  assert.deepEqual(plain(seam.graph3dMatch(nodes, 'a')), plain(lib.matchGraphNodes(nodes, 'a')))
+  assert.deepEqual(plain(seam.graph3dMatch(nodes, 'A')), plain(lib.matchGraphNodes(nodes, 'A')))
+  const point = { x: 10, y: -20, z: 30 }
+  const mine = seam.graph3dFocusAngles(point)
+  const theirs = lib.focusAngles(point)
+  assert.ok(Math.abs(mine.yaw - theirs.yaw) < 1e-9)
+  assert.ok(Math.abs(mine.pitch - theirs.pitch) < 1e-9)
+  assert.equal(seam.GRAPH_REVEAL_URL, '/api/memory/reveal')
+})

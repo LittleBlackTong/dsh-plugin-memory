@@ -110,6 +110,12 @@ export const SESSION_ROUTE_PATH: '/api/memory/session'
 /** Basic soul profile (managed SOUL.md block): read fields (GET) / save (POST). */
 export const SOUL_ROUTE_PATH: '/api/memory/soul'
 
+/** Reveal a memory page in the OS file manager (POST { id }). */
+export const REVEAL_ROUTE_PATH: '/api/memory/reveal'
+
+/** Resolve a memory page to its absolute path (GET ?id=). */
+export const PATH_ROUTE_PATH: '/api/memory/path'
+
 /** User-editable settings (composition config is the base layer). */
 export interface MemorySettings {
   enabled?: boolean
