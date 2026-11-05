@@ -25,6 +25,14 @@
 dsh plugin --profile <profile> add dsh-plugin-memory
 ```
 
+也可以从**插件索引**安装：在 **插件 → 实验性插件** 里打开「自定义插件索引」，进 **发现 → 添加索引源**，粘贴
+
+```
+https://raw.githubusercontent.com/LittleBlackTong/dsh-plugin-memory/main/docs/market/index.json
+```
+
+然后在列表里安装 **记忆（Memory）**（索引是本仓库里的官方格式 JSON）。
+
 2. **重启应用**。第一个会话里 agent 会**主动发起铸魂对话**（不想聊也行：**设置 → 记忆 → 人格基础**，一次保存）。
 3. **验证**：`dsh-memory doctor`，或打开 **设置 → 记忆** 看健康看板与热改配置。
 

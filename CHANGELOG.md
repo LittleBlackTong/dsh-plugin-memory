@@ -2,6 +2,13 @@
 
 所有记录跟随 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/) 风格；版本号与 `package.json` 保持一致。
 
+## [0.17.3] - 2026-11-05
+
+### Added
+
+- **官方格式插件索引**：`docs/market/index.json`（DSH 官方索引格式，npm 来源、`engines.dsh` 兼容声明），可直接在「插件 → 发现 → 添加索引源」中加载安装。
+- README 中英增加「从插件索引安装」方式（Discover 添加索引 URL → 安装 Memory）。
+
 ## [0.17.2] - 2026-11-05
 
 ### Docs

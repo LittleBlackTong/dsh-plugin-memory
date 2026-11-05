@@ -1,0 +1,41 @@
+{
+  "format": 1,
+  "title": {
+    "en": "dsh-plugin-memory",
+    "zh": "dsh-plugin-memory 记忆插件"
+  },
+  "description": {
+    "en": "Long-term memory for DeepSeek Harness: a portable markdown memory store with a soul.",
+    "zh": "给 DeepSeek Harness 的长期记忆：可迁移的 markdown 记忆库，还带一份灵魂。"
+  },
+  "plugins": [
+    {
+      "name": "dsh-plugin-memory",
+      "title": {
+        "en": "Memory",
+        "zh": "记忆"
+      },
+      "description": {
+        "en": "Cross-session, mobile markdown memory with SOUL persona, session switch, quick soul setup, 3D memory graph (search / reveal), health dashboard and portable pack/unpack.",
+        "zh": "跨会话 markdown 记忆：SOUL 人格、会话级开关、快速铸魂、3D 记忆图谱（搜索/打开文件）、健康看板与 pack/unpack 迁移。"
+      },
+      "author": "LittleBlackTong",
+      "homepage": "https://github.com/LittleBlackTong/dsh-plugin-memory#readme",
+      "repository": {
+        "url": "https://github.com/LittleBlackTong/dsh-plugin-memory"
+      },
+      "versions": [
+        {
+          "version": "0.17.2",
+          "publishTimestamp": 1793847320,
+          "source": {
+            "type": "npm"
+          },
+          "engines": {
+            "dsh": "^0.2.1-rc.5"
+          }
+        }
+      ]
+    }
+  ]
+}

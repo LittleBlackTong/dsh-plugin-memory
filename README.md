@@ -25,6 +25,14 @@ A Cordis plugin that gives DSH agents **persistent, cross-session, migratable me
 dsh plugin --profile <profile> add dsh-plugin-memory
 ```
 
+Or install from a **plugin index**: enable *Custom plugin indexes* under **Plugins → Experimental**, open **Discover → Add index source**, paste
+
+```
+https://raw.githubusercontent.com/LittleBlackTong/dsh-plugin-memory/main/docs/market/index.json
+```
+
+then install **Memory** from the list. (A JSON index in the official format, served from this repo.)
+
 2. **Restart the app.** In the first session the agent starts the **soul-forging** conversation itself (or skip it: **Settings → Memory → Basic soul**, one save).
 3. **Verify:** `dsh-memory doctor`, or open **Settings → Memory** for the health dashboard and hot settings.
 
