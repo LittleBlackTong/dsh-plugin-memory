@@ -2,6 +2,12 @@
 
 所有记录跟随 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/) 风格；版本号与 `package.json` 保持一致。
 
+## [0.18.3] - 2026-11-10
+
+### Fixed
+
+- **双击节点提示 `no-session`**：设置面板里的图谱没有 session id，而 `/api/memory/session` 在追踪器未记录"说过话的会话"时（例如刚刷新页面还没发消息）返回 no-session。现在无 sessionId 时兜底取第一个已挂载会话（优先带工作区 cwd 的），侧栏打开就能解析出 `session/<id>/<path>` 地址。
+
 ## [0.18.2] - 2026-11-10
 
 ### Fixed
