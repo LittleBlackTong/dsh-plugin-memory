@@ -16,8 +16,8 @@
         "zh": "记忆"
       },
       "description": {
-        "en": "Cross-session, mobile markdown memory with SOUL persona, session switch, quick soul setup, 3D memory graph (search / reveal), health dashboard and portable pack/unpack.",
-        "zh": "跨会话 markdown 记忆：SOUL 人格、会话级开关、快速铸魂、3D 记忆图谱（搜索/打开文件）、健康看板与 pack/unpack 迁移。"
+        "en": "Cross-session markdown memory with SOUL persona, session switch, quick soul setup, 3D memory graph (search / reveal / double-click opens the file in the sidebar), boot snapshot, health dashboard and portable pack/unpack.",
+        "zh": "跨会话 markdown 记忆：SOUL 人格、会话级开关、快速铸魂、3D 记忆图谱（搜索/打开文件/双击在侧栏打开）、boot 快照、健康看板与 pack/unpack 迁移。"
       },
       "author": "LittleBlackTong",
       "homepage": "https://github.com/LittleBlackTong/dsh-plugin-memory#readme",
@@ -26,8 +26,8 @@
       },
       "versions": [
         {
-          "version": "0.17.9",
-          "publishTimestamp": 1793958188,
+          "version": "0.18.0",
+          "publishTimestamp": 1794273767,
           "source": {
             "type": "npm"
           },
