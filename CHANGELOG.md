@@ -2,6 +2,13 @@
 
 所有记录跟随 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/) 风格；版本号与 `package.json` 保持一致。
 
+## [0.18.1] - 2026-11-10
+
+### Fixed
+
+- **双击节点仍然回退 Finder**：客户端插件此前用 `ctx.get('sidebarRight')`/`ctx.sidebarRight` 读取侧栏服务，Cordis 下未在 `inject` 声明的服务访问会抛错、被 try/catch 吞掉 → 服务恒为 undefined。改用公开 API `ctx.reflect.get('sidebarRight', true)`（不要求 inject，旧宿主无该服务时同样安全返回 undefined）。
+- **回退时给出具体原因**：侧栏打开失败会在面板提示具体阶段（`sidebar-unavailable` / `path-unresolved` / `no-session` / 打开异常信息），便于定位；Finder 回退行为不变。
+
 ## [0.18.0] - 2026-11-10
 
 ### Added
