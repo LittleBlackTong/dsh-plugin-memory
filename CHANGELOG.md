@@ -2,6 +2,12 @@
 
 所有记录跟随 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/) 风格；版本号与 `package.json` 保持一致。
 
+## [0.18.4] - 2026-11-10
+
+### Fixed
+
+- **双击打开报 `no registered tab type claims "dsh-resource://file/absolute/..."`**：host 在无 session id 时兜底选中的会话可能属于另一个项目（cwd 不含记忆库），客户端因此退回 `absolute` 地址；而侧栏只认 `session/<id>/<相对路径>` 地址。现在 host 兜底优先选「cwd 包含记忆库目录」的会话；文件确实在工作区外时客户端直接给出「不在当前工作区、已用系统文件管理器打开」的说明，不再尝试注定失败的 absolute 地址。
+
 ## [0.18.3] - 2026-11-10
 
 ### Fixed
