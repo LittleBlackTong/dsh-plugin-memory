@@ -2,6 +2,12 @@
 
 所有记录跟随 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/) 风格；版本号与 `package.json` 保持一致。
 
+## [0.18.2] - 2026-11-10
+
+### Fixed
+
+- **0.18.1 仍报 `sidebar-unavailable`**：客户端插件 apply 时 `ctx.reflect.get('sidebarRight')` 返回 undefined——插件加载顺序里右侧栏服务尚未 provide，缓存后永不更新。改为**双击时懒解析**：每次调用按候选服务名（`sidebarRight` / `rightSidebar` / `sidebar`）用 `ctx.reflect.get(name, false)`（不要求提供者已激活）取第一个带 `openResource` 的服务；仍取不到才回退 Finder。
+
 ## [0.18.1] - 2026-11-10
 
 ### Fixed
