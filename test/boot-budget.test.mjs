@@ -3,7 +3,7 @@ import assert from 'node:assert/strict'
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { allocateBootBudget, renderBootBlock } from '../lib/boot.js'
+import { allocateBootBudget, renderBootBlock, renderRecentActivity } from '../lib/boot.js'
 
 /** Throwaway store whose boot files hold exactly `sizes[file]` characters. */
 function makeStore(sizes) {
@@ -209,6 +209,32 @@ test('a CRLF store is injected as LF only', () => {
     const block = renderBootBlock(dir, { bootMaxChars: 4000 })
     assert.ok(block.length > 0)
     assert.doesNotMatch(block, /\r/, 'injected text must not carry CR')
+  } finally {
+    rmSync(dir, { recursive: true, force: true })
+  }
+})
+
+test('the recent-activity section can be split out of the boot block (issue #8)', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'memory-recent-'))
+  try {
+    writeFileSync(join(dir, 'SOUL.md'), '# soul\n', 'utf8')
+    writeFileSync(join(dir, 'log.md'),
+      '## [2026-11-01] test | first\n## [2026-11-02] test | second\n## [2026-11-03] test | third\n', 'utf8')
+
+    const withTail = renderBootBlock(dir, { bootMaxChars: 4000 })
+    assert.match(withTail, /最近动态/, 'default keeps the tail in the boot block')
+    assert.match(withTail, /third/)
+
+    const withoutTail = renderBootBlock(dir, { bootMaxChars: 4000, includeRecentActivity: false })
+    assert.doesNotMatch(withoutTail, /最近动态/, 'split mode renders the tail separately')
+    assert.match(withoutTail, /soul/)
+
+    const recent = renderRecentActivity(dir)
+    assert.match(recent, /third/)
+    assert.equal(recent.split('\n').filter((line) => line.startsWith('- ')).length, 3)
+    const one = renderRecentActivity(dir, { count: 1 })
+    assert.equal(one.split('\n').filter((line) => line.startsWith('- ')).length, 1)
+    assert.equal(renderRecentActivity(dir, { count: 0 }).split('\n').filter((line) => line.startsWith('- ')).length, 3)
   } finally {
     rmSync(dir, { recursive: true, force: true })
   }

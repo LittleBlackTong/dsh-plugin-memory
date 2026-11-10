@@ -77,6 +77,12 @@ export interface MemoryConfig {
    * Default `[]`.
    */
   disabledWorkspaces?: string[]
+  /**
+   * `session` — freeze the rendered boot block for the whole session so a
+   * mid-session digest cannot invalidate the prompt-prefix cache (issue #8);
+   * `live` (default) — re-read the store on every turn.
+   */
+  bootSnapshot?: 'live' | 'session'
   /** Where per-session overrides live (default `<dshHome>/memory-sessions.json`). */
   sessionStateFile?: string
   /** Days a session override stays valid before it is pruned. Default `7`. */
@@ -134,6 +140,8 @@ export interface MemorySettings {
   growthRecapEnabled?: boolean
   growthRecapIntervalDays?: number
   disabledWorkspaces?: string[]
+  /** `live` (default) re-reads every turn; `session` freezes the boot block. */
+  bootSnapshot?: 'live' | 'session'
 }
 
 /** Schemastery schema for {@link MemorySettings}. */

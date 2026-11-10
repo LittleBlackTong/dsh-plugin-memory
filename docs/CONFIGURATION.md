@@ -20,6 +20,7 @@ All keys below are read from the composition layer (`cordis.patch.yml`) unless m
 | `growthRecapEnabled` **hot** | `true` | Weekly growth recap on the recall channel |
 | `growthRecapIntervalDays` **hot** | `7` | Days between growth recaps |
 | `disabledWorkspaces` **hot** | `[]` | Session cwd patterns that default to memory off (`~` expanded, path-boundary match, case-insensitive on Windows) |
+| `bootSnapshot` **hot** | `live` | `live` re-reads the store every turn; `session` freezes the boot block for the session (mid-session writes apply from the next session) so the prompt-prefix cache stays hit |
 | `bootFiles` | `[SOUL.md, MEMORY.md, index.md]` | Files injected at session start |
 | `bootMaxChars` | `12000` | Total boot-block character budget |
 | `bootFileBudgets` | — | Per-file caps, e.g. `{ index.md: 3500 }` |
@@ -38,7 +39,7 @@ All keys below are read from the composition layer (`cordis.patch.yml`) unless m
 
 ## Settings panel
 
-Sixteen **hot** keys are editable under **Settings → Memory** and apply immediately: `enabled`, `memoryDir`, `autoInject`, `deferUntilUserSpeaks`, `activeSessionOnly`, `registerSkill`, `recallEnabled`, `recallIntervalMinMinutes`, `recallIntervalMaxMinutes`, `recallMaxPerSession`, `proactiveCooldownSeconds`, `toneGuideEnabled`, `toneIntensity`, `growthRecapEnabled`, `growthRecapIntervalDays`, `disabledWorkspaces`. Changing `memoryDir` scaffolds the new store automatically (when `scaffold: true`). Everything else is composition-layer and needs a restart.
+Seventeen **hot** keys are editable under **Settings → Memory** and apply immediately: `enabled`, `memoryDir`, `autoInject`, `bootSnapshot`, `deferUntilUserSpeaks`, `activeSessionOnly`, `registerSkill`, `recallEnabled`, `recallIntervalMinMinutes`, `recallIntervalMaxMinutes`, `recallMaxPerSession`, `proactiveCooldownSeconds`, `toneGuideEnabled`, `toneIntensity`, `growthRecapEnabled`, `growthRecapIntervalDays`, `disabledWorkspaces`. Changing `memoryDir` scaffolds the new store automatically (when `scaffold: true`). Everything else is composition-layer and needs a restart.
 
 The panel also has a **Review now** button (a control, not a setting): it sends one growth recap immediately, still respecting the shared speech floor, and reports the outcome (sending / sent / deferred / session busy / no content / disabled / failed) for 5 seconds.
 

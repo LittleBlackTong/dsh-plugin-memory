@@ -2,6 +2,18 @@
 
 所有记录跟随 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/) 风格；版本号与 `package.json` 保持一致。
 
+## [0.18.0] - 2026-11-10
+
+### Added
+
+- **`bootSnapshot: session | live`（issue #8）**：`session` 在会话首次注入时固化 boot 文本，会话中途写记忆不再改变系统提示前缀；新会话重新读盘。默认 `live`（不改变现有体验）。配置项进入「设置 → 记忆」（第 17 个热改项），`/memory on|off`、配置变更、切换模式都会重置快照。
+- **「最近动态」拆成独立 runtime-context 段**（order 900）：boot 块只含 SOUL/MEMORY/index + 语气段，log 尾部单独注入；会话中途 digest 只让这段尾部变更，缓存失效范围从「整段前缀」缩到「尾部」。
+- **双击记忆节点 → 在 DSH 右侧栏打开该 md 文件**（兼容 macOS / Windows / Linux）：客户端调用 `ctx.sidebarRight.openResource` 打开 `file` 资源；服务不可用或失败时自动回退「在 Finder/资源管理器中显示」。
+
+### Changed
+
+- 图谱双击行为：由「直接 reveal」改为「优先侧栏打开、失败回退 reveal」；选中节点仍保留「在 Finder 中显示 / 复制路径」按钮。
+
 ## [0.17.9] - 2026-11-06
 
 ### Fixed

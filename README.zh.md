@@ -43,7 +43,7 @@ https://raw.githubusercontent.com/LittleBlackTong/dsh-plugin-memory/main/docs/ma
 - **你说了算** —— 会话级开关（chip / `/memory on|off` / 面板）+ `disabledWorkspaces` 工作区默认。
 - **像个搭子** —— digest 提醒、主动追忆、每周成长回顾、按语境调语气；与其它主动插件共享发言权仲裁。
 - **可迁移** —— 纯 markdown + git，`pack`/`unpack` 搬家，可选自动提交。
-- **记忆图谱** —— 可交互 3D 球面：旋转/缩放/拖节点整理、搜索定位、悬停或点击点亮邻居；选中节点可 **在 Finder 中显示** 或 **复制路径**。
+- **记忆图谱** —— 可交互 3D 球面：旋转/缩放/拖节点整理、搜索定位、悬停或点击点亮邻居；选中节点可 **在 Finder 中显示** 或 **复制路径**；**双击节点直接在 DSH 侧栏打开该文件**（打不开时回退系统文件管理器）。
 - **健康工具** —— 看板、`checkup`、`lint`、`doctor`、自动 `last_access`。
 - **零构建、面板双语、配置热改。**
 
@@ -67,7 +67,7 @@ https://raw.githubusercontent.com/LittleBlackTong/dsh-plugin-memory/main/docs/ma
 
 ## 配置
 
-十六个热改项在 **设置 → 记忆** 里即时生效。完整配置表、boot 预算规则与组合层覆盖示例见 [docs/CONFIGURATION.md](docs/CONFIGURATION.md)。
+十七个热改项在 **设置 → 记忆** 里即时生效——含 `bootSnapshot`（默认 `live`；设为 `session` 会在本会话固化 boot 块，会话中途写记忆不再让前缀缓存失效）。完整配置表、boot 预算规则与组合层覆盖示例见 [docs/CONFIGURATION.md](docs/CONFIGURATION.md)。
 
 ## CLI
 

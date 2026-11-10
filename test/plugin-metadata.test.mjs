@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { execFileSync } from 'node:child_process'
-import { mkdtempSync, readFileSync, writeFileSync } from 'node:fs'
+import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { Readable } from 'node:stream'
@@ -93,11 +93,11 @@ test('default export retains Cordis metadata after DSH unwraps it', () => {
 test('works without a webServer (headless): config-only, boot + skill registered', () => {
   const { ctx, calls, disposed, injects } = makeFakeCtx()
   const dispose = plugin(ctx, CFG)
-  assert.deepEqual(calls.map(([service]) => service), ['systemPrompt', 'skills'])
+  assert.deepEqual(calls.map(([service]) => service), ['systemPrompt', 'systemPrompt', 'skills'])
   assert.deepEqual(disposed, [])
   assert.deepEqual(injects.map((entry) => entry.deps), [['commands'], ['webServer']])
   dispose()
-  assert.deepEqual(disposed, ['systemPrompt', 'skills'])
+  assert.deepEqual(disposed, ['systemPrompt', 'systemPrompt', 'skills'])
 })
 
 test('registers the config route and GET serves the resolved config', async () => {
@@ -143,6 +143,8 @@ test('registers the config route and GET serves the resolved config', async () =
     growthRecapIntervalDays: 7,
     // 0.14.0: per-session gate — workspaces that default to memory off.
     disabledWorkspaces: [],
+    // 0.18.0: boot snapshot mode (issue #8).
+    bootSnapshot: 'live',
   })
   dispose()
 })
@@ -162,22 +164,24 @@ test('POST hot-edits: enabled=false tears both registrations down; restore re-re
     effect: () => () => {},
   })
   const route = routes.get(CONFIG_ROUTE_PATH)
-  assert.deepEqual(calls.map(([service]) => service), ['systemPrompt', 'skills'])
+  assert.deepEqual(calls.map(([service]) => service), ['systemPrompt', 'systemPrompt', 'skills'])
 
   let result = await routeCall(route, 'POST', JSON.stringify({ enabled: false }))
   assert.equal(result.status, 200)
   assert.equal(JSON.parse(result.body).enabled, false)
-  assert.deepEqual(disposed, ['systemPrompt', 'skills'])
-  assert.equal(calls.length, 2) // nothing re-registered
+  assert.deepEqual(disposed, ['systemPrompt', 'systemPrompt', 'skills'])
+  assert.equal(calls.length, 3) // nothing re-registered
 
   result = await routeCall(route, 'POST', JSON.stringify({ enabled: true }))
   assert.equal(result.status, 200)
   assert.deepEqual(calls.map(([service]) => service), [
-    'systemPrompt', 'skills', 'systemPrompt', 'skills',
+    'systemPrompt', 'systemPrompt', 'skills', 'systemPrompt', 'systemPrompt', 'skills',
   ])
 
   dispose()
-  assert.deepEqual(disposed, ['systemPrompt', 'skills', 'systemPrompt', 'skills'])
+  assert.deepEqual(disposed, [
+    'systemPrompt', 'systemPrompt', 'skills', 'systemPrompt', 'systemPrompt', 'skills',
+  ])
 })
 
 test('POST rejects a bad patch and an empty memoryDir', async () => {
@@ -303,7 +307,9 @@ test('hot edit: memoryDir re-registers boot + skill against the new directory', 
   const result = await routeCall(route, 'POST', JSON.stringify({ memoryDir: otherDir }))
   assert.equal(result.status, 200)
 
-  const bootCall = calls.filter(([service]) => service === 'systemPrompt').at(-1)[1]
+  const bootCall = calls
+    .filter(([service, value]) => service === 'systemPrompt' && value.name === 'memory-boot')
+    .at(-1)[1]
   const skillCall = calls.filter(([service]) => service === 'skills').at(-1)[1]
   assert.ok(bootCall.text().includes(otherDir))
   assert.deepEqual(skillCall.resourceBase, { kind: 'directory', path: otherDir })
@@ -327,7 +333,9 @@ test('tone config hot-applies to the boot block; an invalid intensity is rejecte
   })
   const route = routes.get(CONFIG_ROUTE_PATH)
 
-  const bootText = () => calls.filter(([service]) => service === 'systemPrompt').at(-1)[1].text()
+  const bootText = () => calls
+    .filter(([service, value]) => service === 'systemPrompt' && value.name === 'memory-boot')
+    .at(-1)[1].text()
   assert.match(bootText(), /## 语气（按语境微调）/, 'tone guide is on by default')
   assert.match(bootText(), /赶工\/紧急修复/)
 
@@ -365,4 +373,46 @@ test('new user-facing config keys persist through the JSON store', () => {
   assert.equal(reloaded.get().proactiveCooldownSeconds, 0)
   assert.equal(reloaded.get().toneIntensity, 'medium')
   assert.equal(reloaded.get().growthRecapEnabled, false)
+})
+
+// ── 0.18.0 (issue #8): bootSnapshot ────────────────────────────────────────
+
+test('bootSnapshot: session freezes the boot text; live re-reads the store', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'dsh-memory-snapshot-'))
+  const cfg = { ...CFG, memoryDir: dir, configFile: join(dir, 'memory.json'), deferUntilUserSpeaks: false, activeSessionOnly: false }
+  mkdirSync(dir, { recursive: true })
+  writeFileSync(join(dir, 'SOUL.md'), '# soul v1\n')
+  const { ctx, calls, injects } = makeFakeCtx()
+  const dispose = plugin(ctx, cfg)
+  const routes = new Map()
+  injects.find((entry) => entry.deps[0] === 'webServer').callback({
+    webServer: {
+      register(route) {
+        routes.set(route.path, route)
+        return () => routes.delete(route.path)
+      },
+    },
+    effect: () => () => {},
+  })
+  const route = routes.get(CONFIG_ROUTE_PATH)
+  const bootSeg = () => calls
+    .filter(([service, value]) => service === 'systemPrompt' && value.name === 'memory-boot')
+    .at(-1)[1]
+  const agent = { id: 'agent-snapshot', session: { header: { cwd: process.cwd() } } }
+
+  assert.match(bootSeg().text({ agent }), /soul v1/, 'live mode (default) reads the store')
+  writeFileSync(join(dir, 'SOUL.md'), '# soul v2\n')
+  assert.match(bootSeg().text({ agent }), /soul v2/, 'live mode re-reads on the next turn')
+
+  let result = await routeCall(route, 'POST', JSON.stringify({ bootSnapshot: 'session' }))
+  assert.equal(result.status, 200)
+  const frozen = bootSeg().text({ agent })
+  assert.match(frozen, /soul v2/)
+  writeFileSync(join(dir, 'SOUL.md'), '# soul v3\n')
+  assert.equal(bootSeg().text({ agent }), frozen, 'session mode keeps the first snapshot')
+
+  result = await routeCall(route, 'POST', JSON.stringify({ bootSnapshot: 'live' }))
+  assert.equal(result.status, 200)
+  assert.match(bootSeg().text({ agent }), /soul v3/, 'switching back to live re-reads')
+  dispose()
 })

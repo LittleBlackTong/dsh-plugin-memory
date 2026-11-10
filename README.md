@@ -43,7 +43,7 @@ then install **Memory** from the list. (A JSON index in the official format, ser
 - **You stay in control** — per-session switch (chip / `/memory on|off` / panel) and `disabledWorkspaces` defaults.
 - **A companion** — digest nudge, proactive recall, weekly growth recap, context-sensitive tone; shared speech floor with other proactive plugins.
 - **Portable** — plain markdown + git, `pack`/`unpack`, optional auto-commit.
-- **Memory graph** — interactive 3D sphere: rotate / zoom / drag nodes, search-to-focus, hover or click to light up neighbours; select a node → **Reveal in Finder** or **Copy path**.
+- **Memory graph** — interactive 3D sphere: rotate / zoom / drag nodes, search-to-focus, hover or click to light up neighbours; select a node → **Reveal in Finder** or **Copy path**; **double-click a node to open its file in the DSH sidebar** (falls back to the OS file manager).
 - **Health tools** — dashboard, `checkup`, `lint`, `doctor`, automatic `last_access` stamping.
 - **Zero build, bilingual panel, hot-editable config.**
 
@@ -67,7 +67,7 @@ then install **Memory** from the list. (A JSON index in the official format, ser
 
 ## Configuration
 
-Sixteen hot keys edit live under **Settings → Memory**. The full table, boot-budget rules and composition overrides are in [docs/CONFIGURATION.md](docs/CONFIGURATION.md).
+Seventeen hot keys edit live under **Settings → Memory** — including `bootSnapshot` (`live` by default; `session` freezes the boot block for the session so mid-session writes can't invalidate the prompt-prefix cache). The full table, boot-budget rules and composition overrides are in [docs/CONFIGURATION.md](docs/CONFIGURATION.md).
 
 ## CLI
 
