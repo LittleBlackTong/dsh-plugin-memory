@@ -2,6 +2,16 @@
 
 所有记录跟随 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/) 风格；版本号与 `package.json` 保持一致。
 
+## [0.19.5] - 2026-11-12
+
+### Fixed
+
+- **page-access 记账健壮性**：`agent/inbox/inserted` 监听器整体 try/catch（写盘/渲染异常只 warn，不污染宿主事件分发）；`stamped` 集合在 agent 销毁时删除，长期多会话不再累积会话 id。
+
+### Changed
+
+- 商店条目更新到 0.19.x（README 与市场描述同步 rc.2 兼容要求：rc.2 用户必须 ≥0.19.2）。
+
 ## [0.19.4] - 2026-11-12
 
 ### Fixed
