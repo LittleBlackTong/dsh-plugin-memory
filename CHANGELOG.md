@@ -2,6 +2,13 @@
 
 所有记录跟随 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/) 风格；版本号与 `package.json` 保持一致。
 
+## [0.19.3] - 2026-11-12
+
+### Docs
+
+- **README 重点标注 DSH 0.2.2-rc.2 的升级要求**：使用 rc.2 的用户必须升级到 **0.19.2+**——早期 0.19.x 调用已被移除的 `ctx.agents.roots()`，抛错发生在 serial 的 `agent/created` 监听器里会让 **agent 注册被拒绝**，表现为「开启插件后无法新建会话」；升级后需完全重启 DSH。
+- 同时把 0.19.x 的兼容性变更写进 README 顶部提示：engines 显式覆盖 rc.2、prompt 回调容错、chip 在 rc.2 空 props 下的活跃会话兜底。
+
 ## [0.19.2] - 2026-11-12
 
 ### Fixed

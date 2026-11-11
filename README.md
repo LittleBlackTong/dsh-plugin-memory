@@ -14,6 +14,8 @@
 
 **macOS · Windows · Linux** · Node ≥ 18 · DSH `^0.2.1-rc.5` / `0.2.2-rc.2` · MIT
 
+> **⚠️ Using DSH 0.2.2-rc.2 or newer? Upgrade the plugin to 0.19.2+ first.** Early 0.19.x reads `ctx.agents.roots()`, which rc.2 replaced with `list()`; the resulting throw happens inside the **serial** `agent/created` listener, which rejects agent registration — the visible symptom is **sessions can no longer be created while the plugin is enabled**. 0.19.2 reads the registry compatibly (never throws) and the change needs a **full DSH restart** to take effect `/memory` and the panel stay offline-safe meanwhile.
+
 ## What it does
 
 A Cordis plugin that gives DSH agents **persistent, cross-session, migratable memory**: plain markdown + git (the *LLM Wiki* pattern), a `SOUL.md` persona, and a boot block **auto-injected through runtime context** — a hard guarantee, not a hope that the model decides to call a skill.
