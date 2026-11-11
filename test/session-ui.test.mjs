@@ -76,7 +76,11 @@ test('MemoryChip renders the ON state, and nothing without a sessionId', () => {
   assert.equal(trigger.props['aria-haspopup'], 'menu')
   assert.equal(trigger.props['aria-expanded'], false, 'the dropdown starts closed')
   assert.ok(!texts.includes('本会话'), 'menu items are not rendered until the chip is opened')
-  assert.equal(seam.MemoryChip({}), null, 'no session id means no chip (e.g. a preview)')
+  // 0.19.1: DSH 0.2.2-rc.2 renders the slot without a sessionId; the chip
+  // still renders and lets the host route fall back to the active session.
+  const withoutSession = seam.MemoryChip({})
+  assert.ok(withoutSession !== null && withoutSession !== undefined, 'no slot id still renders the chip')
+  assert.ok(collectText(withoutSession).length > 0, 'the fallback chip renders its label')
 })
 
 test('MemoryChip follows an injected English t seat', () => {

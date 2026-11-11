@@ -2,6 +2,13 @@
 
 所有记录跟随 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/) 风格；版本号与 `package.json` 保持一致。
 
+## [0.19.1] - 2026-11-11
+
+### Fixed
+
+- **开启 memory 后会话不可用（DSH 0.2.2-rc.2）**：`ctx.systemPrompt.context` 的两个 `text` 回调若抛错会让整个 prompt 构建失败、所有会话发不出消息。两个回调（boot / 最近动态）现在整体 try/catch，异常只记录日志并返回空串——最坏情况记忆不注入，会话照常可用。
+- 会话 chip 兼容 rc.2 的 `conversation.input.left` 空 props：宿主不传 `sessionId` 时请求走 `/api/memory/session` 的活跃会话兜底（不再直接隐藏 chip）。
+
 ## [0.19.0] - 2026-11-11
 
 ### Changed
