@@ -26,13 +26,13 @@
       },
       "versions": [
         {
-          "version": "0.18.4",
-          "publishTimestamp": 1794277785,
+          "version": "0.19.0",
+          "publishTimestamp": 1794409756,
           "source": {
             "type": "npm"
           },
           "engines": {
-            "dsh": "^0.2.1-rc.5"
+            "dsh": "^0.2.1-rc.5 || ^0.2.2-rc.2"
           }
         }
       ]
