@@ -2,6 +2,13 @@
 
 所有记录跟随 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/) 风格；版本号与 `package.json` 保持一致。
 
+## [0.19.2] - 2026-11-12
+
+### Fixed
+
+- **rc.2 下开启插件后会话不可用（根因）**：DSH 0.2.2-rc.2 把 `ctx.agents.roots()` 换成了 `ctx.agents.list()`，而 `agent/created` 是 **serial 事件**——监听器抛错会**拒绝 agent 注册**，于是每个新会话都建不起来。现在注册表读取改为兼容实现（`list()` → `roots()` → 空数组，绝不抛错），并且四个 `agent/created` 监听器整体 try/catch；另加 rc.2 形状的单测（list-only / legacy-roots / 注册表抛错三种）。
+- 侧栏会话兜底同步改用兼容注册表 `list()`，rc.2 下双击节点的 session 解析不会退回 no-session。
+
 ## [0.19.1] - 2026-11-11
 
 ### Fixed
