@@ -12,7 +12,7 @@
 
 > Long-term memory for DeepSeek Harness — a portable markdown memory store with a soul, injected at every session start.
 
-**macOS · Windows · Linux** · Node ≥ 18 · DSH `^0.2.1-rc.5` · MIT
+**macOS · Windows · Linux** · Node ≥ 18 · DSH `^0.2.1-rc.5` / `0.2.2-rc.2` · MIT
 
 ## What it does
 

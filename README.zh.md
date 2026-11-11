@@ -12,7 +12,7 @@
 
 > 给 DeepSeek Harness 的长期记忆 —— 一个可迁移的 markdown 记忆库，还带一份灵魂，每次会话启动自动注入。
 
-**macOS · Windows · Linux** 全平台支持 · Node ≥ 18 · DSH `^0.2.1-rc.5` · MIT
+**macOS · Windows · Linux** 全平台支持 · Node ≥ 18 · DSH `^0.2.1-rc.5` / `0.2.2-rc.2` · MIT
 
 ## 它是干什么的
 

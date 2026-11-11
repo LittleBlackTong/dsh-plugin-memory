@@ -2,6 +2,17 @@
 
 所有记录跟随 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/) 风格；版本号与 `package.json` 保持一致。
 
+## [0.19.0] - 2026-11-11
+
+### Changed
+
+- **兼容 DSH 0.2.2-rc.2**：`engines.dsh` 扩为 `^0.2.1-rc.5 || ^0.2.2-rc.2`，`@deepseek-ai/dsh-skill` / `dsh-system-prompt` 的 peer 范围同步覆盖 `^0.2.2-rc.2`——使用默认 semver 语义的工具/界面不再把插件误判成"不兼容 rc.2"（DSH 自身闸门本来就带 `includePrerelease`）。
+- 设置分区（`settings.section`）注册加容错：宿主 slot 契约变化时，面板入口不显示，但 boot 注入、memory 技能、HTTP 路由、CLI 不受影响。
+
+### Fixed
+
+- 按 0.2.2-rc.2 的客户端变更做了防御：侧栏导航服务继续用 `ctx.reflect.get` 懒解析、chip 下拉自绘定位、设置导航图标按文本认领，不依赖 rc.2 调整过的浮层定位与导航内部接口。
+
 ## [0.18.4] - 2026-11-10
 
 ### Fixed

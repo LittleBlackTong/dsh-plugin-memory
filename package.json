@@ -1,7 +1,7 @@
 {
   "name": "dsh-plugin-memory",
   "description": "Long-term memory plugin for DeepSeek Harness: persistent cross-session markdown memory with a soul/persona file, auto-injected at every session start, plus remember/recall/consolidate/forget workflows and portable migration tooling.",
-  "version": "0.18.4",
+  "version": "0.19.0",
   "license": "MIT",
   "type": "module",
   "main": "lib/index.js",
@@ -43,7 +43,7 @@
   },
   "engines": {
     "node": ">=18",
-    "dsh": "^0.2.1-rc.5"
+    "dsh": "^0.2.1-rc.5 || ^0.2.2-rc.2"
   },
   "keywords": [
     "deepseek-harness",
@@ -58,8 +58,8 @@
   ],
   "peerDependencies": {
     "@deepseek-ai/cordis": "^4.0.1",
-    "@deepseek-ai/dsh-skill": "^0.1.2-alpha.1 || ^0.2.0-rc.1",
-    "@deepseek-ai/dsh-system-prompt": "^0.1.2-alpha.1 || ^0.2.0-rc.1",
+    "@deepseek-ai/dsh-skill": "^0.1.2-alpha.1 || ^0.2.0-rc.1 || ^0.2.2-rc.2",
+    "@deepseek-ai/dsh-system-prompt": "^0.1.2-alpha.1 || ^0.2.0-rc.1 || ^0.2.2-rc.2",
     "@deepseek-ai/schemastery": "^3.18.1"
   },
   "repository": {

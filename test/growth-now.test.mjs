@@ -229,6 +229,8 @@ test('the package declares the DSH engine range the plugin actually needs', () =
   // memory 0.11+ hard-depends on the host locale service and 0.12+ on session
   // projections, so the compat gate (engines.dsh) must be able to reject older
   // hosts instead of shipping a half-mounted client.
-  assert.equal(PKG.engines?.dsh, '^0.2.1-rc.5')
+  // 0.19.0: also covers the 0.2.2-rc.2 line explicitly, so default-semver
+  // tools do not report the plugin as incompatible with the newer host.
+  assert.equal(PKG.engines?.dsh, '^0.2.1-rc.5 || ^0.2.2-rc.2')
   assert.equal(PKG.engines?.node, '>=18')
 })

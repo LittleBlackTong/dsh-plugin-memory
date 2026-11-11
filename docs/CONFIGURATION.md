@@ -71,7 +71,7 @@ When every file fits inside its equal share this is byte-for-byte the old even-s
 
 ## Compatibility
 
-`package.json` declares `engines.dsh: "^0.2.1-rc.5"` and the host enforces it with `semver.satisfies(..., { includePrerelease: true })` — `^0.2.1` or `>=0.2.0` do **not** match the prerelease. The `locale` service (0.11+) and session projections (0.12+) are load-bearing. On older hosts the gate refuses the plugin instead of running it half-broken; at runtime a missing projection degrades gracefully.
+`package.json` declares `engines.dsh: "^0.2.1-rc.5 || ^0.2.2-rc.2"` and the host enforces it with `semver.satisfies(..., { includePrerelease: true })` — `^0.2.1` or `>=0.2.0` do **not** match the prerelease. The `locale` service (0.11+) and session projections (0.12+) are load-bearing. On older hosts the gate refuses the plugin instead of running it half-broken; at runtime a missing projection degrades gracefully.
 
 ## Language
 
