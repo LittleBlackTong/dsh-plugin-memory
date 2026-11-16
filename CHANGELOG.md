@@ -2,6 +2,19 @@
 
 所有记录跟随 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/) 风格；版本号与 `package.json` 保持一致。
 
+## [0.20.0] - 2026-11-16
+
+### Added
+
+- **记忆面板新增「时间轴」tab**（与图谱切换）：单线地铁式横向时间轴，数据全部从 `log.md` 派生（不新增存储）；拖动平移、滚轮缩放且**粒度自动联动** 日/周/月/年；节点不拥挤时自动显示事件描述，拥挤时只留圆点；单击弹详情、双击打开对应记忆页面（匹配不到则打开 `log.md`）；默认只显示关键事件（可勾选显示全部）；深浅主题跟随 DSH 主题变量。
+- 新增只读路由 `GET /api/memory/timeline`（`buildTimeline`：事件→页面路径模糊匹配、空/损坏日志容错）。
+- 新增 `test/timeline.test.mjs` 与 `session-ui` 时间轴用例；全量 **353** 测试通过。
+
+### Changed
+
+- `MemorySection` 改为 tab 容器：只挂载当前投影（图谱的轮询在时间轴打开时暂停，反之亦然）。
+- `openInSidebar` 抽出共享的 `openMemoryPath`（图谱与时间轴共用侧栏打开逻辑）。
+
 ## [0.19.5] - 2026-11-12
 
 ### Fixed
