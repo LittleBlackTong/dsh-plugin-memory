@@ -171,3 +171,13 @@ test('MemorySection exposes the graph/timeline tabs', () => {
   assert.ok(texts.includes('时间轴'))
 })
 
+test('timeline wheel zoom is a native non-passive listener and stops propagation', () => {
+  const source = readFileSync(new URL('../lib/client.js', import.meta.url), 'utf8')
+  assert.ok(source.includes("addEventListener('wheel', onTimelineWheel, { passive: false })"),
+    'wheel zoom needs a non-passive listener so preventDefault works')
+  assert.ok(source.includes('event.stopPropagation()'),
+    'the wheel must not also scroll the settings panel')
+  assert.ok(!source.trimEnd().includes('        onWheel,\n'),
+    'the passive React wheel prop must not come back')
+})
+
