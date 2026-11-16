@@ -310,3 +310,26 @@ export function readProactiveLock(path: string):
 
 /** Default lock path: `${DSH_HOME||~/.dsh}/proactive-cooldown.json`. */
 export function defaultProactiveCooldownPath(): string
+
+/** One memory timeline event derived from `log.md`. */
+export interface TimelineEvent {
+  /** Calendar date, `YYYY-MM-DD`. */
+  date: string
+  /** Raw log kind (fix, feat, publish, decision, note, task, …). */
+  kind: string
+  /** Five-group classification used by the timeline colours. */
+  group: 'fix' | 'feat' | 'publish' | 'decision' | 'other'
+  /** Event headline (text after `|`). */
+  title: string
+  /** Relative page path when the title matches a page (for opening it). */
+  path?: string
+}
+
+/** Payload of `GET /api/memory/timeline`. */
+export interface TimelinePayload {
+  events: TimelineEvent[]
+  stats: { events: number; first?: string; last?: string; pages: number }
+}
+
+/** Build the timeline payload from a memory directory (read-only). */
+export function buildTimeline(memoryDir: string): TimelinePayload
