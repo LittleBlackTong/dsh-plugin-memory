@@ -101,3 +101,73 @@ test('the client half exposes the session route it talks to', () => {
   const seam = loadClient()
   assert.equal(seam.SESSION_URL, '/api/memory/session')
 })
+
+// ── v0.20 时间轴视图 ──────────────────────────────────────────────────────
+
+test('scaleFor maps zoom density to day/week/month/year', () => {
+  const seam = loadClient()
+  assert.equal(seam.scaleFor(54), 'day')
+  assert.equal(seam.scaleFor(30), 'day')
+  assert.equal(seam.scaleFor(20), 'week')
+  assert.equal(seam.scaleFor(7), 'week')
+  assert.equal(seam.scaleFor(3), 'month')
+  assert.equal(seam.scaleFor(1.6), 'month')
+  assert.equal(seam.scaleFor(1), 'year')
+})
+
+test('visibleTimelineEvents hides process noise unless showAll is set', () => {
+  const seam = loadClient()
+  const events = [
+    { date: '2026-11-10', kind: 'fix', group: 'fix', title: '修复 A' },
+    { date: '2026-11-10', kind: 'note', group: 'other', title: '笔记' },
+    { date: '2026-11-10', kind: 'digest', group: 'other', title: 'digest' },
+  ]
+  assert.equal(seam.visibleTimelineEvents(events, false).length, 1)
+  assert.equal(seam.visibleTimelineEvents(events, true).length, 3)
+  assert.equal(seam.timelineGroupOf('bugfix'), 'fix')
+  assert.equal(seam.timelineGroupOf('unknown'), 'other')
+})
+
+test('computeTimelineLayout drops overlapping labels but keeps every station', () => {
+  const seam = loadClient()
+  const events = [
+    { date: '2026-11-10', kind: 'fix', group: 'fix', title: '修复 A' },
+    { date: '2026-11-10', kind: 'fix', group: 'fix', title: '修复 B' },
+    { date: '2026-11-10', kind: 'fix', group: 'fix', title: '修复 C' },
+  ]
+  const layout = seam.computeTimelineLayout({ events, width: 600, offset: 0, pxPerDay: 54, showAll: false })
+  assert.equal(layout.stations.length, 3)
+  assert.equal(layout.labels.length, 1, 'crowded labels collapse to a single one')
+  assert.ok(layout.axis.width > 0)
+  const empty = seam.computeTimelineLayout({ events: [], width: 600, offset: 0, pxPerDay: 54, showAll: false })
+  assert.equal(empty.stations.length, 0)
+})
+
+test('initialTimelineOffset keeps the last week visible at the right edge', () => {
+  const seam = loadClient()
+  const events = [
+    { date: '2026-08-18', kind: 'fix', group: 'fix', title: 'old' },
+    { date: '2026-11-12', kind: 'fix', group: 'fix', title: 'new' },
+  ]
+  const offset = seam.initialTimelineOffset({ events, width: 600, pxPerDay: 54 })
+  assert.ok(Number.isFinite(offset))
+  // Newest event (right edge - 40px) is at x = 600 - 40.
+  const span = (Date.parse('2026-11-12T00:00:00Z') - Date.parse('2026-08-18T00:00:00Z')) / 86400000 * 54
+  assert.ok(Math.abs(offset + span - (600 - 40)) < 1e-6, 'the newest event sits at the right edge')
+  assert.ok(offset < 0, 'the timeline is scrolled left of the origin')
+})
+
+test('TimelineCard renders the loading line before the timeline resolves', () => {
+  const seam = loadClient()
+  const texts = collectText(seam.TimelineCard({}))
+  assert.ok(texts.some((text) => text.includes('正在读取记忆时间轴')), `texts: ${texts.join(' | ')}`)
+})
+
+test('MemorySection exposes the graph/timeline tabs', () => {
+  const seam = loadClient()
+  const tree = seam.MemorySection({})
+  const texts = collectText(tree)
+  assert.ok(texts.includes('图谱'), `tab labels: ${texts.join(' | ')}`)
+  assert.ok(texts.includes('时间轴'))
+})
+
