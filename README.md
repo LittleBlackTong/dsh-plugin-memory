@@ -48,7 +48,7 @@ then install **Memory** from the list. (A JSON index in the official format, ser
 - **A companion** — digest nudge, proactive recall, weekly growth recap, context-sensitive tone; shared speech floor with other proactive plugins.
 - **Portable** — plain markdown + git, `pack`/`unpack`, optional auto-commit.
 - **Memory graph** — interactive 3D sphere: rotate / zoom / drag nodes, search-to-focus, hover or click to light up neighbours; select a node → **Reveal in Finder** or **Copy path**; **double-click a node to open its file in the DSH sidebar** (falls back to the OS file manager).
-- **Timeline** — the same store on a time axis: one draggable metro-style line of log events; wheel zoom switches day/week/month/year granularity automatically; event descriptions show on nodes whenever they fit; click for details, double-click to open the page (falls back to `log.md`); follows the light/dark DSH theme.
+- **Timeline** — the same store as an event log with a density overview bar: pick last 7 days / last 30 days / all, search by title/date/kind, filter by event type, click a day bar to jump; double-click an event to open its page (falls back to `log.md`); follows the light/dark DSH theme.
 - **Health tools** — dashboard, `checkup`, `lint`, `doctor`, automatic `last_access` stamping.
 - **Zero build, bilingual panel, hot-editable config.**
 

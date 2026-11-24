@@ -104,17 +104,6 @@ test('the client half exposes the session route it talks to', () => {
 
 // ── v0.20 时间轴视图 ──────────────────────────────────────────────────────
 
-test('scaleFor maps zoom density to day/week/month/year', () => {
-  const seam = loadClient()
-  assert.equal(seam.scaleFor(54), 'day')
-  assert.equal(seam.scaleFor(30), 'day')
-  assert.equal(seam.scaleFor(20), 'week')
-  assert.equal(seam.scaleFor(7), 'week')
-  assert.equal(seam.scaleFor(3), 'month')
-  assert.equal(seam.scaleFor(1.6), 'month')
-  assert.equal(seam.scaleFor(1), 'year')
-})
-
 test('visibleTimelineEvents hides process noise unless showAll is set', () => {
   const seam = loadClient()
   const events = [
@@ -126,35 +115,6 @@ test('visibleTimelineEvents hides process noise unless showAll is set', () => {
   assert.equal(seam.visibleTimelineEvents(events, true).length, 3)
   assert.equal(seam.timelineGroupOf('bugfix'), 'fix')
   assert.equal(seam.timelineGroupOf('unknown'), 'other')
-})
-
-test('computeTimelineLayout drops overlapping labels but keeps every station', () => {
-  const seam = loadClient()
-  const events = [
-    { date: '2026-11-10', kind: 'fix', group: 'fix', title: '修复 A' },
-    { date: '2026-11-10', kind: 'fix', group: 'fix', title: '修复 B' },
-    { date: '2026-11-10', kind: 'fix', group: 'fix', title: '修复 C' },
-  ]
-  const layout = seam.computeTimelineLayout({ events, width: 600, offset: 0, pxPerDay: 54, showAll: false })
-  assert.equal(layout.stations.length, 3)
-  assert.equal(layout.labels.length, 1, 'crowded labels collapse to a single one')
-  assert.ok(layout.axis.width > 0)
-  const empty = seam.computeTimelineLayout({ events: [], width: 600, offset: 0, pxPerDay: 54, showAll: false })
-  assert.equal(empty.stations.length, 0)
-})
-
-test('initialTimelineOffset keeps the last week visible at the right edge', () => {
-  const seam = loadClient()
-  const events = [
-    { date: '2026-08-18', kind: 'fix', group: 'fix', title: 'old' },
-    { date: '2026-11-12', kind: 'fix', group: 'fix', title: 'new' },
-  ]
-  const offset = seam.initialTimelineOffset({ events, width: 600, pxPerDay: 54 })
-  assert.ok(Number.isFinite(offset))
-  // Newest event (right edge - 40px) is at x = 600 - 40.
-  const span = (Date.parse('2026-11-12T00:00:00Z') - Date.parse('2026-08-18T00:00:00Z')) / 86400000 * 54
-  assert.ok(Math.abs(offset + span - (600 - 40)) < 1e-6, 'the newest event sits at the right edge')
-  assert.ok(offset < 0, 'the timeline is scrolled left of the origin')
 })
 
 test('TimelineCard renders the loading line before the timeline resolves', () => {
@@ -171,13 +131,60 @@ test('MemorySection exposes the graph/timeline tabs', () => {
   assert.ok(texts.includes('时间轴'))
 })
 
-test('timeline wheel zoom is a native non-passive listener and stops propagation', () => {
-  const source = readFileSync(new URL('../lib/client.js', import.meta.url), 'utf8')
-  assert.ok(source.includes("addEventListener('wheel', onTimelineWheel, { passive: false })"),
-    'wheel zoom needs a non-passive listener so preventDefault works')
-  assert.ok(source.includes('event.stopPropagation()'),
-    'the wheel must not also scroll the settings panel')
-  assert.ok(!source.trimEnd().includes('        onWheel,\n'),
-    'the passive React wheel prop must not come back')
+test('timelineRangeStart anchors the range on the newest event', () => {
+  const seam = loadClient()
+  const events = [
+    { date: '2026-08-18', kind: 'fix', group: 'fix', title: 'old' },
+    { date: '2026-11-24', kind: 'fix', group: 'fix', title: 'new' },
+  ]
+  const week = seam.timelineRangeStart(events, 'week')
+  const month = seam.timelineRangeStart(events, 'month')
+  const all = seam.timelineRangeStart(events, 'all')
+  assert.equal(week, Date.parse('2026-11-24T00:00:00Z') - 7 * 86400000)
+  assert.equal(month, Date.parse('2026-11-24T00:00:00Z') - 30 * 86400000)
+  assert.equal(all, Date.parse('2026-08-18T00:00:00Z'))
+  assert.equal(seam.timelineRangeStart([], 'month'), undefined)
+})
+
+test('filterTimelineEvents filters by query, kind group and time bound', () => {
+  const seam = loadClient()
+  const events = [
+    { date: '2026-11-10', kind: 'fix', group: 'fix', title: '修复侧栏打开' },
+    { date: '2026-11-12', kind: 'publish', group: 'publish', title: '发布 0.20.0' },
+    { date: '2026-11-14', kind: 'note', group: 'other', title: '无新增' },
+  ]
+  assert.equal(seam.filterTimelineEvents(events, {}).length, 3)
+  assert.equal(seam.filterTimelineEvents(events, { query: '0.20' }).length, 1)
+  assert.equal(seam.filterTimelineEvents(events, { groups: ['fix'] }).length, 1)
+  assert.equal(seam.filterTimelineEvents(events, { since: Date.parse('2026-11-11T00:00:00Z') }).length, 2)
+  assert.equal(seam.filterTimelineEvents(events, { query: '不存在' }).length, 0)
+  assert.equal(seam.filterTimelineEvents(null, {}).length, 0)
+})
+
+test('buildDayBuckets groups by day with per-group counts, oldest first', () => {
+  const seam = loadClient()
+  const events = [
+    { date: '2026-11-12', kind: 'publish', group: 'publish', title: 'a' },
+    { date: '2026-11-10', kind: 'fix', group: 'fix', title: 'b' },
+    { date: '2026-11-12', kind: 'fix', group: 'fix', title: 'c' },
+  ]
+  const buckets = seam.buildDayBuckets(events)
+  assert.equal(buckets.length, 2)
+  assert.equal(buckets[0].date, '2026-11-10')
+  assert.equal(buckets[0].count, 1)
+  assert.equal(buckets[1].date, '2026-11-12')
+  assert.equal(buckets[1].count, 2)
+  assert.equal(buckets[1].groups.publish, 1)
+  assert.equal(buckets[1].groups.fix, 1)
+  assert.equal(seam.dominantTimelineGroup(buckets[1]), 'fix')
+  assert.equal(seam.buildDayBuckets([]).length, 0)
+})
+
+test('TimelineCard exposes the overview and the event list once loaded', () => {
+  const seam = loadClient()
+  assert.equal(seam.TIMELINE_GROUP_ORDER.length, 5)
+  // loading state still renders a single line before the fetch resolves
+  const texts = collectText(seam.TimelineCard({}))
+  assert.ok(texts.some((text) => text.includes('正在读取记忆时间轴')), `texts: ${texts.join(' | ')}`)
 })
 
