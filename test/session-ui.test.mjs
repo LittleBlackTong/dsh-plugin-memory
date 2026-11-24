@@ -188,3 +188,16 @@ test('TimelineCard exposes the overview and the event list once loaded', () => {
   assert.ok(texts.some((text) => text.includes('正在读取记忆时间轴')), `texts: ${texts.join(' | ')}`)
 })
 
+test('timeline scroll containment: list scrolls itself, panel keeps its position', () => {
+  const source = readFileSync(new URL('../lib/client.js', import.meta.url), 'utf8')
+  // scrollIntoView would also scroll the settings dialog and push the card away
+  assert.ok(!source.includes("target.scrollIntoView({ block: 'start', behavior: 'smooth' })"),
+    'day jumps must not scroll the whole settings dialog')
+  assert.ok(source.includes('node.scrollTop = Math.max(0, node.scrollTop + offset - 2)'),
+    'the day jump scrolls the list container itself')
+  assert.ok(source.includes("overflowAnchor: 'none'"),
+    'the panel root disables browser scroll anchoring while tabs swap')
+  assert.ok(source.includes('overflow-anchor:none'),
+    'the list container disables scroll anchoring')
+})
+
